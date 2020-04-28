@@ -250,7 +250,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         return players_on_pitch
 
     def _validate_inputs(self):
-        if type(self.player_to_analyze) not in (str, int, np.int):
+        if type(self.player_to_analyze) not in (str, int):
             raise ValueError("player_to_analyze must be an integer or a string")
 
         if self.team_player_to_analyze not in ["Home", "Away"]:
@@ -284,4 +284,4 @@ print(example_player_analysis.team_player_to_analyze
       )
 
 example_player_analysis.plot_pitch_control_difference()
-plt.show()
+plt.savefig('FoT_player19.png')
