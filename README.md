@@ -15,5 +15,8 @@ We build out the following tools, given a player/teamID and an event from the co
 5. The ability to plot the space created (and lost) by a player's actual movement, relative to a theoretical velocity vector
 
 
-Data courtesy of Bruno Dagnino (Metrica Sports)
-All helper functions outside of this file courtesy of Laurie Shaw, and can be found in the following Github repository: https://github.com/Friends-of-Tracking-Data-FoTD/LaurieOnTracking
+Data courtesy of Bruno Dagnino (Metrica Sports).
+
+All helper functions outside of this file courtesy of Laurie Shaw, and can be found in the following Github repository: https://github.com/Friends-of-Tracking-Data-FoTD/LaurieOnTracking.
+
+If you have any questions about this code, please feel free to DM me on Twitter (@andrew_puopolo) or email me (puopolo4@gmail.com) 
