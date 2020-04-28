@@ -4,7 +4,7 @@ In this repo, we take a look at the challenge put out by Laurie Shaw (@EightyFiv
 
 The challenge posed at the end of the video was to use the pitch control model presented in the video to calculate how much space was created (or territory captured) by an off the ball run
 
-In the file PlayerPitchControlAnalysis.py, we build out some tools to answer this question, and visualize the space that is being created
+In the file PlayerPitchControlAnalysis.py, we build out some tools to answer this question, and visualize the space that is being created.
 
 We build out the following tools, given a player/teamID and an event from the corresponding Metrica events dataframe:
 
