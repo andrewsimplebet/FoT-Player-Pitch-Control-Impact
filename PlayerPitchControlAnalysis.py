@@ -28,7 +28,6 @@ tracking_home, tracking_away, events = mio.to_single_playing_direction(
 # Calculate player velocities
 tracking_home = mvel.calc_player_velocities(tracking_home, smoothing=True)
 tracking_away = mvel.calc_player_velocities(tracking_away, smoothing=True)
-
 params = mpc.default_model_params(3)
 
 
@@ -46,9 +45,10 @@ class PlayerPitchControlAnalysisPlayer(object):
         n_grid_cells_x=50,
     ):
         """
-        This class is used to consolidate many of the
-        In this class you can:
-            1. Calculate the amount of space occupied on the pitch (per EightyFivePoint's pitch control model)
+        This class is used to consolidate many of the functions that would be used to analyze the impact of a player's movement on pitch control
+        Leveraging @EightyFivePoint's pitch control model as presented in the Friends of Tracking Series, we build out a series of tools to help isolate individual player's impacts to pitch control
+        Using an event from the match's event dataframe, and a specific team/player ID, we can:
+            1. Calculate the amount of space occupied on the pitch (per EightyFivePoint's pitch control model) for any frame of a match
             2. Calculate the difference in total space occupied by the player's team with his current movement vs theoretical movement
             3. Compute the pitch control surface if a specific player had a different velocity vector
             4. Compute the difference in the pitch control surface between a player's actual velocity vector, and a theorized one
@@ -60,7 +60,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         :param pd.DataFrame events: Dataframe containing the event data
         :param int event_id: Index (not row) of the event that describes the instant at which the pitch control surface should be calculated
         :param str team_player_to_analyze: The team of the player whose movement we want to analyze. Must be either "Home" or "Away"
-        :param int or str(int) player_to_analyze: The player ID of the player whose movement we want to analze.
+        :param int or str(int) player_to_analyze: The player ID of the player whose movement we want to analyze.
         :param tuple field_dimens: tuple containing the length and width of the pitch in meters. Default is (106,68)
         :param int n_grid_cells_x: Number of pixels in the grid (in the x-direction) that covers the surface. Default is 50.
                         n_grid_cells_y will be calculated based on n_grid_cells_x and the field dimensions
@@ -264,15 +264,24 @@ class PlayerPitchControlAnalysisPlayer(object):
 
 example_player_analysis = PlayerPitchControlAnalysisPlayer(
     tracking_home=tracking_home,
-    tracking_away=tracking_home,
+    tracking_away=tracking_away,
     params=params,
     events=events,
     event_id=820,
     team_player_to_analyze="Away",
     player_to_analyze=19,
+    field_dimens=(106.0, 68.0),
+    n_grid_cells_x=50,
 )
 
-print(example_player_analysis.calculate_space_created())
 
-print(example_player_analysis.plot_pitch_control_difference())
+print(example_player_analysis.team_player_to_analyze
+      + " Player "
+      + str(example_player_analysis.player_to_analyze)
+      + " created " + str(int(example_player_analysis.calculate_space_created()))
+      + " m^2 of space with his movement during event "
+      + str(example_player_analysis.event_id)
+      )
+
+example_player_analysis.plot_pitch_control_difference()
 plt.show()

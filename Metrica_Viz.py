@@ -537,7 +537,7 @@ def plot_pitchcontrol_for_event(
 def convert_pitch_control_for_cmap(pitch_control):
     """
 
-    :param pitch_control: A pitch control surface that is being used in a plot
+    :param pitch_control: An ndarray thata represents the difference between two pitch control arrays
     :return: An adjusted surface, such that the max value is 1, the min value is 0, and all 0 values are equal to 0.5. Determined by solving a quadratic equation
     """
     min_value = pitch_control.min()
