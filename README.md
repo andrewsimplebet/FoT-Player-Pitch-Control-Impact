@@ -14,7 +14,7 @@ We build out the following tools, given a player/teamID and an event from the co
 4. Compute the difference in the pitch control surface between a player's actual velocity vector, and a theorized one
 5. The ability to plot the space created (and lost) by a player's actual movement, relative to a theoretical velocity vector
 
-In addition, there is a function added to metrica_viz.py called `convert_pitch_control_for_cmap` that transforms a Pitch Control Model so that we can plot differences between two pitch 
+In addition, there is a function added to metrica_viz.py called `convert_pitch_control_for_cmap` that transforms a Pitch Control Model so that we can plot differences between two pitches and have interpretable results.
 
 Data courtesy of Bruno Dagnino (Metrica Sports).
 
