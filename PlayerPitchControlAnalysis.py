@@ -284,4 +284,4 @@ print(example_player_analysis.team_player_to_analyze
       )
 
 example_player_analysis.plot_pitch_control_difference()
-plt.savefig('FoT_player19.png')
+plt.show()
