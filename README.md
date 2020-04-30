@@ -9,13 +9,16 @@ In the file PlayerPitchControlAnalysis.py, we build out some tools to analyze th
 We build out tools to answer the following questions given a player/teamID and an event from the corresponding Metrica events dataframe:
 
 1.) How can we quantify how much space a team occupies on the pitch?
+
 2.) How can we quantify and visualize the effect of an off the ball run using pitch control?
+
 3.) How can we quantify and visualize the space occupied by a player during a given event?
+
 4.) How would the pitch control change if a player were in a different location on the pitch? Is the player in the optimal position given the locations and velocities of the other 21 players on the pitch?
 
 Examples of how these tools can be applied are found in ``example_player_analysis.py``, where we generate the relevant plots and space creation metrics for one player on each team.
 
-In addition, there are functions added to metrica_viz.py to help support the new player specific faults
+In addition, there are functions added to ``metrica_viz.py`` to help support the new player specific faults
 
 Data courtesy of Bruno Dagnino (Metrica Sports).
 
