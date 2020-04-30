@@ -451,6 +451,56 @@ def plot_events(
     return fig, ax
 
 
+def plot_new_player(
+    player_x_coordinate,
+    player_y_coordinate,
+    player_x_velocity,
+    player_y_velocity,
+    player_id,
+    color="g",
+    figax=None,
+    include_player_velocities=False,
+    PlayerMarkerSize=12,
+    PlayerAlpha=0.7,
+    annotate=False,
+):
+    fig, ax = figax  # unpack tuple
+    # Plot New Player
+
+    ax.plot(
+        player_x_coordinate,
+        player_y_coordinate,
+        color=color,
+        marker="o",
+        MarkerSize=PlayerMarkerSize,
+        alpha=PlayerAlpha,
+    )
+    if include_player_velocities:
+        ax.quiver(
+            player_x_coordinate,
+            player_y_coordinate,
+            player_x_velocity,
+            player_y_velocity,
+            color=color,
+            alpha=PlayerAlpha,
+            scale_units="inches",
+            scale=10.0,
+            width=0.0015,
+            headlength=5,
+            headwidth=3,
+        )
+    if annotate:
+
+        ax.text(
+            player_x_coordinate + 0.6,
+            player_y_coordinate + 0.6,
+            str(player_id),
+            fontsize=12,
+            color=color,
+        )
+    return fig, ax
+
+
 def plot_pitchcontrol_for_event(
     event_id,
     events,
@@ -464,6 +514,14 @@ def plot_pitchcontrol_for_event(
     annotate=False,
     field_dimen=(106.0, 68),
     plotting_difference=False,
+    plotting_presence=False,
+    plotting_new_location=False,
+    team_to_plot="Home",
+    player_x_coordinate=None,
+    player_y_coordinate=None,
+    player_id=0,
+    player_x_velocity=0,
+    player_y_velocity=0,
 ):
     """ plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, xgrid, ygrid )
 
@@ -512,15 +570,36 @@ def plot_pitchcontrol_for_event(
         color="k",
         alpha=1,
     )
+    if plotting_new_location:
+        print("Plotting new location")
+        plot_new_player(
+            player_x_coordinate=player_x_coordinate,
+            player_y_coordinate=player_y_coordinate,
+            player_x_velocity=player_x_velocity,
+            player_y_velocity=player_y_velocity,
+            figax=(fig, ax),
+            PlayerAlpha=alpha,
+            include_player_velocities=include_player_velocities,
+            annotate=annotate,
+            player_id=player_id,
+        )
+        PPCF = -1 * PPCF
+    # plot pitch control surface
 
     if plotting_difference:
         PPCF = convert_pitch_control_for_cmap(PPCF)
-    # plot pitch control surface
 
-    if pass_team == "Home":
-        cmap = "bwr"
+    if plotting_presence:
+        if team_to_plot == "Home":
+            PPCF = -1 * PPCF
+            cmap = "Reds"
+        else:
+            cmap = "Blues"
     else:
-        cmap = "bwr_r"
+        if pass_team == "Home":
+            cmap = "bwr"
+        else:
+            cmap = "bwr_r"
 
     ax.imshow(
         np.flipud(PPCF),
