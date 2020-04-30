@@ -21,4 +21,4 @@ Data courtesy of Bruno Dagnino (Metrica Sports).
 
 All helper functions outside of this file courtesy of Laurie Shaw, and can be found in the following Github repository: https://github.com/Friends-of-Tracking-Data-FoTD/LaurieOnTracking.
 
-I am incredibly open to an expansion of this codebase, and would love for collaboration if anyone is interested. If you have ideas for optimizing, expanding or cleaning up this code, please feel free to submit a pull request or contact me on Twitter (@andrew_puopolo) or email (puopolo4@gmail.com) 
+I am incredibly open to an expansion of this codebase, and would love for collaboration if anyone is interested. If you have ideas for optimizing, expanding or cleaning up this code, please feel free to submit a pull request, submit an issue or contact me on Twitter (@andrew_puopolo) or email (puopolo4@gmail.com) 
