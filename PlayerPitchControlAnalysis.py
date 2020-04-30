@@ -77,8 +77,19 @@ class PlayerPitchControlAnalysisPlayer(object):
         self.player_to_analyze = player_to_analyze
         self.field_dimens = field_dimens
         self.n_grid_cells_x = n_grid_cells_x
+        (
+            self.event_pitch_control,
+            self.xgrid,
+            self.ygrid,
+        ) = mpc.generate_pitch_control_for_event(
+            event_id=self.event_id,
+            events=self.events,
+            tracking_home=self.tracking_home,
+            tracking_away=self.tracking_away,
+            params=self.params,
+        )
 
-    def calculate_total_space_on_pitch_team(self, pitch_control_result, xgrid, ygrid):
+    def calculate_total_space_on_pitch_team(self, pitch_control_result):
         """
         Function Description:
         This function calculates the number of square meters on the pitch occupied by the team with the ball in the
@@ -86,8 +97,6 @@ class PlayerPitchControlAnalysisPlayer(object):
 
         Input Parameters:
         :param numpy.ndarray pitch_control_result: The estimates from the result of a fitted pitch control model
-        :param numpy.ndarray xgrid: The xgrid from the result of a fitted pitch control model
-        :param numpy.ndarray ygrid: The ygrid from the result of a fitted pitch control model
 
         Returns:
         :return: The number of meters occupied by the attacking team in a freeze frame of the data. Measured in m^2
@@ -97,7 +106,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             self.field_dimens[0]
             * self.field_dimens[1]
             * (pitch_control_result.sum())
-            / (len(xgrid) * len(ygrid))
+            / (len(self.xgrid) * len(self.ygrid))
         )
         return total_space_attacking
 
@@ -372,13 +381,6 @@ class PlayerPitchControlAnalysisPlayer(object):
             xgrid: Positions of the pixels in the x-direction (field length)
             ygrid: Positions of the pixels in the y-direction (field width)
         """
-        actual_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
-            event_id=self.event_id,
-            events=self.events,
-            tracking_home=self.tracking_home,
-            tracking_away=self.tracking_away,
-            params=self.params,
-        )
         if replace_function == "movement":
             (
                 edited_pitch_control,
@@ -411,7 +413,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             raise ValueError(
                 "replace_function must be either 'movement', 'presence' or 'location'"
             )
-        pitch_control_difference = actual_pitch_control - edited_pitch_control
+        pitch_control_difference = self.event_pitch_control - edited_pitch_control
         return pitch_control_difference, xgrid, ygrid
 
     def calculate_space_created(
@@ -476,7 +478,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         )
 
         pitch_control_change = self.calculate_total_space_on_pitch_team(
-            pitch_control_difference, xgrid, ygrid
+            pitch_control_difference
         )
         if team_with_possession == self.team_player_to_analyze:
             return pitch_control_change
