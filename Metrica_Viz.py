@@ -17,6 +17,7 @@ import matplotlib as mpl
 import numpy as np
 import matplotlib.animation as animation
 import Metrica_PitchControl as mpc
+from matplotlib.colors import LinearSegmentedColormap
 
 
 def plot_pitch(
@@ -227,7 +228,9 @@ def plot_frame(
         ax.plot(
             team[x_columns],
             team[y_columns],
-            color + "o",
+            color=color,
+            marker='o',
+            linestyle='None',
             MarkerSize=PlayerMarkerSize,
             alpha=PlayerAlpha,
         )  # plot player positions
@@ -347,7 +350,9 @@ def save_match_clip(
                 (objs,) = ax.plot(
                     team[x_columns],
                     team[y_columns],
-                    color + "o",
+                    color=color,
+                    marker='o',
+                    linestyle='None',
                     MarkerSize=PlayerMarkerSize,
                     alpha=PlayerAlpha,
                 )  # plot player positions
@@ -435,7 +440,7 @@ def plot_events(
         fig, ax = figax
     for i, row in events.iterrows():
         if "Marker" in indicators:
-            ax.plot(row["Start X"], row["Start Y"], color + marker_style, alpha=alpha)
+            ax.plot(row["Start X"], row["Start Y"], color=color, marker='o', linestyle='None', alpha=alpha)
         if "Arrow" in indicators:
             ax.annotate(
                 "",
@@ -476,6 +481,9 @@ def plot_pitchcontrol_for_event(
     player_id=0,
     player_x_velocity=0,
     player_y_velocity=0,
+    cmap_list = [],
+    alpha_pitch_control=0.5,
+    team_colors=("r", "b")
 ):
     """ plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, xgrid, ygrid )
 
@@ -495,6 +503,9 @@ def plot_pitchcontrol_for_event(
         annotate: Boolean variable that determines with player jersey numbers are added to the plot (default is False)
         field_dimen: tuple containing the length and width of the pitch in meters. Default is (106,68)
         plotting_difference: Tells us if we are plotting a difference of pitch controls
+        cmap_list: List of colors to use in the pitch control spaces for each team. Default is an empty list.
+        alpha_pitch_control: alpha (transparency) of spaces heatmap. Default is 0.5
+        team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
 
     Returrns
     -----------
@@ -513,6 +524,7 @@ def plot_pitchcontrol_for_event(
         tracking_home.loc[event_frame],
         tracking_away.loc[event_frame],
         figax=(fig, ax),
+        team_colors=team_colors,
         PlayerAlpha=alpha,
         include_player_velocities=include_player_velocities,
         annotate=annotate,
@@ -545,30 +557,43 @@ def plot_pitchcontrol_for_event(
     if plotting_difference:
         PPCF = convert_pitch_control_for_cmap(PPCF)
 
+    reds_cmap = 'Reds'
+    blues_cmap = 'Blues'
+    home_cmap = 'bwr'
+    away_cmap = 'bwr_r'
+
+
+    if len(cmap_list):
+        blues_cmap = LinearSegmentedColormap.from_list("", cmap_list[:6][::-1])
+        reds_cmap = LinearSegmentedColormap.from_list("", cmap_list[6:])
+        home_cmap = LinearSegmentedColormap.from_list("", cmap_list)
+        away_cmap = LinearSegmentedColormap.from_list("", cmap_list[::-1])
+
+
     # If we are plotting a player's space captured, apply a specific cmap
     if plotting_presence:
         if team_to_plot != possession_team:
             PPCF = -1 * PPCF
         if team_to_plot == "Home":
-            cmap = "Reds"
+            cmap = reds_cmap
         else:
-            cmap = "Blues"
+            cmap = blues_cmap
 
     # Otherwise, apply the default heatmap from the original function
     else:
         if possession_team == "Home":
-            cmap = "bwr"
+            cmap = home_cmap
         else:
-            cmap = "bwr_r"
+            cmap = away_cmap
 
     # plot pitch control surface
     ax.imshow(
         np.flipud(PPCF),
         extent=(np.amin(xgrid), np.amax(xgrid), np.amin(ygrid), np.amax(ygrid)),
-        interpolation="hanning",
+        interpolation="lanczos",
         vmin=0.0,
         vmax=1.0,
-        alpha=0.5,
+        alpha=alpha_pitch_control,
         cmap=cmap,
     )
     return fig, ax
