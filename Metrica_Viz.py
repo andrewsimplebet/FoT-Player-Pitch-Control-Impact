@@ -527,7 +527,6 @@ def plot_pitchcontrol_for_event(
     )
     # If we want to add a new player, plot a new player on the pitch
     if plotting_new_location:
-        print("Plotting new location")
         plot_new_player(
             player_x_coordinate=player_x_coordinate,
             player_y_coordinate=player_y_coordinate,

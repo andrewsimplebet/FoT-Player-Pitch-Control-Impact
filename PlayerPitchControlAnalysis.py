@@ -3,6 +3,7 @@ import Metrica_Viz as mviz
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
+from hyperopt import hp, fmin, tpe, Trials
 
 
 class PlayerPitchControlAnalysisPlayer(object):
@@ -77,6 +78,8 @@ class PlayerPitchControlAnalysisPlayer(object):
         self.player_to_analyze = player_to_analyze
         self.field_dimens = field_dimens
         self.n_grid_cells_x = n_grid_cells_x
+        self.tracking_frame = self.events.loc[self.event_id]["Start Frame"]
+        self.team_in_possession = self.events.loc[self.event_id]["Team"]
         (
             self.event_pitch_control,
             self.xgrid,
@@ -89,7 +92,9 @@ class PlayerPitchControlAnalysisPlayer(object):
             params=self.params,
         )
 
-    def calculate_total_space_on_pitch_team(self, pitch_control_result):
+    def calculate_total_space_on_pitch_team(
+        self, pitch_control_result, calculating_diff=False
+    ):
         """
         Function Description:
         This function calculates the number of square meters on the pitch occupied by the team with the ball in the
@@ -108,7 +113,11 @@ class PlayerPitchControlAnalysisPlayer(object):
             * (pitch_control_result.sum())
             / (len(self.xgrid) * len(self.ygrid))
         )
-        return total_space_attacking
+
+        if (self.team_player_to_analyze == self.team_in_possession) or calculating_diff:
+            return total_space_attacking
+        else:
+            return (self.field_dimens[0] * self.field_dimens[1]) - total_space_attacking
 
     def calculate_pitch_control_replaced_velocity(
         self, replace_x_velocity=0, replace_y_velocity=0,
@@ -137,26 +146,23 @@ class PlayerPitchControlAnalysisPlayer(object):
         """
         self._validate_inputs()
 
-        # Determine which row in the tracking dataframe to use
-        event_frame = self.events.loc[self.event_id]["Start Frame"]
-
         # Replace player's velocity datapoints with new velocity vector
         temp_tracking_home = self.tracking_home.copy()
         temp_tracking_away = self.tracking_away.copy()
 
         if self.team_player_to_analyze == "Home":
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_vx"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vx"
             ] = replace_x_velocity
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_vy"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vy"
             ] = replace_y_velocity
         elif self.team_player_to_analyze == "Away":
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_vx"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vx"
             ] = replace_x_velocity
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_vy"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
             ] = replace_y_velocity
 
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
@@ -185,7 +191,6 @@ class PlayerPitchControlAnalysisPlayer(object):
         ygrid: Positions of the pixels in the y-direction (field width)
         """
         self._validate_inputs()
-        event_frame = self.events.loc[self.event_id]["Start Frame"]
 
         # Replace player's datapoint nan's, so pitch control does not take into account
         # the player when computing its surface
@@ -194,29 +199,29 @@ class PlayerPitchControlAnalysisPlayer(object):
 
         if self.team_player_to_analyze == "Home":
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_x"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_x"
             ] = np.nan
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_y"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_y"
             ] = np.nan
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_vx"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vx"
             ] = np.nan
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_vy"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vy"
             ] = np.nan
         elif self.team_player_to_analyze == "Away":
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_x"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_x"
             ] = np.nan
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_y"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_y"
             ] = np.nan
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_vx"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vx"
             ] = np.nan
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_vy"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
             ] = np.nan
 
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
@@ -277,39 +282,37 @@ class PlayerPitchControlAnalysisPlayer(object):
                 "that the player is stationary in his/her new location"
             )
 
-        event_frame = self.events.loc[self.event_id]["Start Frame"]
-
         # Replace datapoints with a new location and velocity vector
         temp_tracking_home = self.tracking_home.copy()
         temp_tracking_away = self.tracking_away.copy()
 
         if self.team_player_to_analyze == "Home":
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_x"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_x"
             ] += relative_x_change
             temp_tracking_home.at[
-                event_frame, "Home_" + str(self.player_to_analyze) + "_y"
+                self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_y"
             ] += relative_y_change
             if replace_velocity:
                 temp_tracking_home.at[
-                    event_frame, "Home_" + str(self.player_to_analyze) + "_vx"
+                    self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vx"
                 ] = replace_x_velocity
                 temp_tracking_home.at[
-                    event_frame, "Home_" + str(self.player_to_analyze) + "_vy"
+                    self.tracking_frame, "Home_" + str(self.player_to_analyze) + "_vy"
                 ] = replace_y_velocity
         elif self.team_player_to_analyze == "Away":
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_x"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_x"
             ] += relative_x_change
             temp_tracking_away.at[
-                event_frame, "Away_" + str(self.player_to_analyze) + "_y"
+                self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_y"
             ] += relative_y_change
             if replace_velocity:
                 temp_tracking_away.at[
-                    event_frame, "Away_" + str(self.player_to_analyze) + "_vx"
+                    self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vx"
                 ] = replace_x_velocity
                 temp_tracking_away.at[
-                    event_frame, "Away_" + str(self.player_to_analyze) + "_vy"
+                    self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
                 ] = replace_y_velocity
 
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
@@ -462,8 +465,6 @@ class PlayerPitchControlAnalysisPlayer(object):
             Positive values represent space lost by the player's team after editing the player's attributes,
              while negative values represent space gained after editing the player's attributes. Measured in m^2.
         """
-        team_with_possession = self.events.loc[self.event_id].Team
-
         (
             pitch_control_difference,
             xgrid,
@@ -478,12 +479,12 @@ class PlayerPitchControlAnalysisPlayer(object):
         )
 
         pitch_control_change = self.calculate_total_space_on_pitch_team(
-            pitch_control_difference
+            pitch_control_result=pitch_control_difference, calculating_diff=True
         )
-        if team_with_possession == self.team_player_to_analyze:
-            return pitch_control_change
-        else:
-            return -1 * pitch_control_change
+        pitch_control_change = pitch_control_change * (
+            2 * (self.team_in_possession == self.team_player_to_analyze) - 1
+        )
+        return pitch_control_change
 
     def plot_pitch_control_difference(
         self,
@@ -576,45 +577,44 @@ class PlayerPitchControlAnalysisPlayer(object):
                 plotting_difference=True,
             )
         elif replace_function == "location":
-            event_frame = self.events.loc[self.event_id]["Start Frame"]
             if self.team_player_to_analyze == "Home":
                 x_coordinate = (
-                    self.tracking_home.loc[event_frame][
+                    self.tracking_home.loc[self.tracking_frame][
                         "Home_" + str(self.player_to_analyze) + "_x"
                     ]
                     + relative_x_change
                 )
                 y_coordinate = (
-                    self.tracking_home.loc[event_frame][
+                    self.tracking_home.loc[self.tracking_frame][
                         "Home_" + str(self.player_to_analyze) + "_y"
                     ]
                     + relative_y_change
                 )
                 if replace_velocity == False:
-                    replace_x_velocity = self.tracking_home.loc[event_frame][
+                    replace_x_velocity = self.tracking_home.loc[self.tracking_frame][
                         "Home_" + str(self.player_to_analyze) + "_vx"
                     ]
-                    replace_y_velocity = self.tracking_home.loc[event_frame][
+                    replace_y_velocity = self.tracking_home.loc[self.tracking_frame][
                         "Home_" + str(self.player_to_analyze) + "_vy"
                     ]
             else:
                 x_coordinate = (
-                    self.tracking_away.loc[event_frame][
+                    self.tracking_away.loc[self.tracking_frame][
                         "Away_" + str(self.player_to_analyze) + "_x"
                     ]
                     + relative_x_change
                 )
                 y_coordinate = (
-                    self.tracking_away.loc[event_frame][
+                    self.tracking_away.loc[self.tracking_frame][
                         "Away_" + str(self.player_to_analyze) + "_y"
                     ]
                     + relative_y_change
                 )
                 if replace_velocity == False:
-                    replace_x_velocity = self.tracking_away.loc[event_frame][
+                    replace_x_velocity = self.tracking_away.loc[self.tracking_frame][
                         "Away_" + str(self.player_to_analyze) + "_vx"
                     ]
-                    replace_y_velocity = self.tracking_away.loc[event_frame][
+                    replace_y_velocity = self.tracking_away.loc[self.tracking_frame][
                         "Away_" + str(self.player_to_analyze) + "_vy"
                     ]
 
@@ -664,10 +664,106 @@ class PlayerPitchControlAnalysisPlayer(object):
                 fontdict={"fontsize": 22},
             )
 
-    def _get_players_on_pitch(self):
+    def get_optimal_location_on_pitch(self):
+        offside_position = self._determine_offside_position()
+        max_y_coord = self.field_dimens[1] / 2
+        min_y_coord = -1 * max_y_coord
+        if self.team_player_to_analyze == "Home":
+            player_x_coordinate = self.tracking_home.loc[self.tracking_frame][
+                "Home_" + str(self.player_to_analyze) + "_x"
+            ]
+            player_y_coordinate = self.tracking_home.loc[self.tracking_frame][
+                "Home_" + str(self.player_to_analyze) + "_y"
+            ]
+            min_x_coord = offside_position
+            max_x_coord = self.field_dimens[0] / 2
+        elif self.team_player_to_analyze == "Away":
+            player_x_coordinate = self.tracking_away.loc[self.tracking_frame][
+                "Away_" + str(self.player_to_analyze) + "_x"
+            ]
+            player_y_coordinate = self.tracking_away.loc[self.tracking_frame][
+                "Away_" + str(self.player_to_analyze) + "_y"
+            ]
+            min_x_coord = -1 * self.field_dimens[0] / 2
+            max_x_coord = offside_position
+        else:
+            raise ValueError("team_player_to_analyze must be either 'Home' or 'Away'")
+
+        MAX_EVALS = 1000
+        space = {
+            "x_change": hp.uniform(
+                "x_change",
+                min_x_coord - player_x_coordinate,
+                max_x_coord - player_x_coordinate,
+            ),
+            "y_change": hp.uniform(
+                "y_change",
+                min_y_coord - player_y_coordinate,
+                max_y_coord - player_y_coordinate,
+            ),
+            "x_velocity": hp.uniform("x_velocity", -2.5, 2.5),
+            "y_velocity": hp.uniform("y_velocity", -2.5, 2.5),
+        }
+        bayes_trials = Trials()
+        optimization = fmin(
+            fn=self.partial_space_creation,
+            space=space,
+            algo=tpe.suggest,
+            max_evals=MAX_EVALS,
+            trials=bayes_trials,
+        )
+        self.plot_pitch_control_difference(
+            replace_function="location",
+            relative_x_change=optimization["x_change"],
+            relative_y_change=optimization["y_change"],
+            replace_x_velocity=optimization["x_velocity"],
+            replace_y_velocity=optimization["y_velocity"],
+            replace_velocity=True,
+        )
+        plt.show()
+
+    def partial_space_creation(self, params):
+        x_change = params["x_change"]
+        y_change = params["y_change"]
+        x_velocity = params["x_velocity"]
+        y_velocity = params["y_velocity"]
+        new_pitch_control, xgrid, ygrid = self.calculate_pitch_control_new_location(
+            relative_x_change=x_change,
+            relative_y_change=y_change,
+            replace_velocity=True,
+            replace_x_velocity=x_velocity,
+            replace_y_velocity=y_velocity,
+        )
+        space_creation = self.calculate_total_space_on_pitch_team(
+            new_pitch_control, calculating_diff=False
+        )
+        print(params, space_creation)
+        return -1 * space_creation
+
+    def _determine_offside_position(self):
+
+        x_coordinates = []
+        if self.team_player_to_analyze == "Home":
+            players_on_pitch = self._get_players_on_pitch(team="Away")
+            tracking_frame = self.tracking_away.loc[self.tracking_frame]
+            for player in players_on_pitch:
+                player_x_position = tracking_frame["Away_" + str(player) + "_x"]
+                x_coordinates.append(player_x_position)
+            second_lowest_x = sorted(x_coordinates, reverse=False)[1]
+            return second_lowest_x
+        elif self.team_player_to_analyze == "Away":
+            players_on_pitch = self._get_players_on_pitch(team="Home")
+            tracking_frame = self.tracking_home.loc[self.tracking_frame]
+            for player in players_on_pitch:
+                player_x_position = tracking_frame["Home_" + str(player) + "_x"]
+                x_coordinates.append(player_x_position)
+            second_highest_x = sorted(x_coordinates, reverse=True)[1]
+            return second_highest_x
+
+    def _get_players_on_pitch(self, team):
         pass_frame = self.events.loc[self.event_id]["Start Frame"]
         players_on_pitch = []
-        if self.team_player_to_analyze == "Home":
+        if team == "Home":
             data_row = self.tracking_home.loc[pass_frame]
         else:
             data_row = self.tracking_away.loc[pass_frame]
@@ -684,7 +780,9 @@ class PlayerPitchControlAnalysisPlayer(object):
         if self.team_player_to_analyze not in ["Home", "Away"]:
             raise ValueError("team_player_to_analyze must equal 'Home' or 'Away'")
 
-        if str(self.player_to_analyze) not in self._get_players_on_pitch():
+        if str(self.player_to_analyze) not in self._get_players_on_pitch(
+            team=self.team_player_to_analyze
+        ):
             raise ValueError(
                 "player_to_analyze is either not on the correct team, or was not on the pitch at the time of the event"
             )

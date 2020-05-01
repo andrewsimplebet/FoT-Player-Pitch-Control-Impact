@@ -20,8 +20,8 @@ import Metrica_PitchControl as mpc
 import matplotlib.pyplot as plt
 from PlayerPitchControlAnalysis import PlayerPitchControlAnalysisPlayer
 
-# DATADIR = "/users/andrewpuopolo/sample-data/data"
-DATADIR = "WHERE/YOU/STORE/FREE/METRICA/DATA"
+DATADIR = "/users/andrewpuopolo/sample-data/data"
+# DATADIR = "WHERE/YOU/STORE/FREE/METRICA/DATA"
 
 # region Laurie's code
 game_id = 2  # let's look at sample match 2
