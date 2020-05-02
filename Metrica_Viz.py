@@ -185,6 +185,7 @@ def plot_frame(
     figax=None,
     team_colors=("r", "b"),
     field_dimen=(106.0, 68.0),
+    field_color="green",
     include_player_velocities=False,
     PlayerMarkerSize=10,
     PlayerAlpha=0.7,
@@ -201,6 +202,7 @@ def plot_frame(
         fig,ax: Can be used to pass in the (fig,ax) objects of a previously generated pitch. Set to (fig,ax) to use an existing figure, or None (the default) to generate a new pitch plot,
         team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
         field_dimen: tuple containing the length and width of the pitch in meters. Default is (106,68)
+        field_color: color of field. options are {'green','white'}
         include_player_velocities: Boolean variable that determines whether player velocities are also plotted (as quivers). Default is False
         PlayerMarkerSize: size of the individual player marlers. Default is 10
         PlayerAlpha: alpha (transparency) of player markers. Defaault is 0.7
@@ -212,7 +214,7 @@ def plot_frame(
 
     """
     if figax is None:  # create new pitch
-        fig, ax = plot_pitch(field_dimen=field_dimen)
+        fig, ax = plot_pitch(field_color=field_color, field_dimen=field_dimen)
     else:  # overlay on a previously generated pitch
         fig, ax = figax  # unpack tuple
     # plot home & away teams in order
@@ -285,6 +287,7 @@ def save_match_clip(
     frames_per_second=25,
     team_colors=("r", "b"),
     field_dimen=(106.0, 68.0),
+    field_color="white",
     include_player_velocities=False,
     PlayerMarkerSize=10,
     PlayerAlpha=0.7,
@@ -303,6 +306,7 @@ def save_match_clip(
         frames_per_second: frames per second to assume when generating the movie. Default is 25.
         team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
         field_dimen: tuple containing the length and width of the pitch in meters. Default is (106,68)
+        field_color: color of field. options are {'green','white'}
         include_player_velocities: Boolean variable that determines whether player velocities are also plotted (as quivers). Default is False
         PlayerMarkerSize: size of the individual player marlers. Default is 10
         PlayerAlpha: alpha (transparency) of player markers. Defaault is 0.7
@@ -327,7 +331,7 @@ def save_match_clip(
     fname = fpath + "/" + fname + ".mp4"  # path and filename
     # create football pitch
     if figax is None:
-        fig, ax = plot_pitch(field_dimen=field_dimen)
+        fig, ax = plot_pitch(field_color=field_color, field_dimen=field_dimen)
     else:
         fig, ax = figax
     fig.set_tight_layout(True)
@@ -405,6 +409,7 @@ def plot_events(
     events,
     figax=None,
     field_dimen=(106.0, 68),
+    field_color="green",
     indicators=["Marker", "Arrow"],
     color="r",
     marker_style="o",
@@ -420,6 +425,7 @@ def plot_events(
         events: row (i.e. instant) of the home team tracking data frame
         fig,ax: Can be used to pass in the (fig,ax) objects of a previously generated pitch. Set to (fig,ax) to use an existing figure, or None (the default) to generate a new pitch plot,
         field_dimen: tuple containing the length and width of the pitch in meters. Default is (106,68)
+        field_color: color of field. options are {'green','white'}
         indicators: List containing choices on how to plot the event. 'Marker' places a marker at the 'Start X/Y' location of the event; 'Arrow' draws an arrow from the start to end locations. Can choose one or both.
         color: color of indicator. Default is 'r' (red)
         marker_style: Marker type used to indicate the event position. Default is 'o' (filled ircle).
@@ -433,7 +439,7 @@ def plot_events(
     """
 
     if figax is None:  # create new pitch
-        fig, ax = plot_pitch(field_dimen=field_dimen)
+        fig, ax = plot_pitch(field_color=field_color, field_dimen=field_dimen)
     else:  # overlay on a previously generated pitch
         fig, ax = figax
     for i, row in events.iterrows():
@@ -481,7 +487,8 @@ def plot_pitchcontrol_for_event(
     player_y_velocity=0,
     cmap_list=[],
     alpha_pitch_control=0.5,
-    team_colors=("r", "b")
+    team_colors=("r", "b"),
+    field_color="white"
 ):
     """ plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, xgrid, ygrid )
 
@@ -504,6 +511,7 @@ def plot_pitchcontrol_for_event(
         cmap_list: List of colors to use in the pitch control spaces for each team. Default is an empty list.
         alpha_pitch_control: alpha (transparency) of spaces heatmap. Default is 0.5
         team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
+        field_color: color of the field. Default is green.
 
     Returrns
     -----------
@@ -517,7 +525,7 @@ def plot_pitchcontrol_for_event(
     possession_team = events.loc[event_id].Team
 
     # plot frame and event
-    fig, ax = plot_pitch(field_color="white", field_dimen=field_dimen)
+    fig, ax = plot_pitch(field_color=field_color, field_dimen=field_dimen)
     plot_frame(
         tracking_home.loc[event_frame],
         tracking_away.loc[event_frame],
