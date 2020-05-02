@@ -18,6 +18,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         player_to_analyze,
         field_dimens=(106.0, 68.0),
         n_grid_cells_x=50,
+
     ):
         """
         This class is used to consolidate many of the functions that would be used to analyze the impact of an
@@ -68,6 +69,8 @@ class PlayerPitchControlAnalysisPlayer(object):
         :param tuple field_dimens: tuple containing the length and width of the pitch in meters. Default is (106,68)
         :param int n_grid_cells_x: Number of pixels in the grid (in the x-direction) that covers the surface.
                 Default is 50. n_grid_cells_y will be calculated based on n_grid_cells_x and the field dimensions
+
+
         """
         self.tracking_home = tracking_home
         self.tracking_away = tracking_away
@@ -494,6 +497,10 @@ class PlayerPitchControlAnalysisPlayer(object):
         relative_y_change=0,
         replace_velocity=False,
         replace_function="movement",
+        cmap_list=[],
+        alpha=0.7,
+        alpha_pitch_control=0.5,
+        team_colors=("r", "b")
     ):
         """
         Function description:
@@ -535,6 +542,12 @@ class PlayerPitchControlAnalysisPlayer(object):
             Must be either "movement", "presence" or "location". Defaults to "movement". For a detailed description of
             this argument, please refer to the docstring in ``calculate_pitch_control_difference``.
 
+        :param list cmap_list: List of colors to use in the pitch control spaces for each team. Default is an empty list.
+        :param float alpha: alpha (transparency) of player markers. Default is 0.7
+        :param float alpha_pitch_control: alpha (transparency) of spaces heatmap. Default is 0.5
+        :param tuple team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
+
+
         Returns:
             This function technically does not return anything, but does produce a matplotlib plot.
         """
@@ -563,8 +576,14 @@ class PlayerPitchControlAnalysisPlayer(object):
                 ygrid=ygrid,
                 plotting_presence=True,
                 team_to_plot=self.team_player_to_analyze,
+                alpha=alpha,
+                alpha_pitch_control=alpha_pitch_control,
+                cmap_list=cmap_list,
+                team_colors=team_colors
+
             )
         elif replace_function == "movement":
+
             mviz.plot_pitchcontrol_for_event(
                 event_id=self.event_id,
                 events=self.events,
@@ -575,6 +594,10 @@ class PlayerPitchControlAnalysisPlayer(object):
                 xgrid=xgrid,
                 ygrid=ygrid,
                 plotting_difference=True,
+                alpha=alpha,
+                alpha_pitch_control=alpha_pitch_control,
+                cmap_list=cmap_list,
+                team_colors=team_colors
             )
         elif replace_function == "location":
             if self.team_player_to_analyze == "Home":
@@ -634,6 +657,10 @@ class PlayerPitchControlAnalysisPlayer(object):
                 player_y_coordinate=y_coordinate,
                 player_x_velocity=replace_x_velocity,
                 player_y_velocity=replace_y_velocity,
+                alpha=alpha,
+                alpha_pitch_control=alpha_pitch_control,
+                cmap_list=cmap_list,
+                team_colors=team_colors
             )
         if replace_function == "movement":
             plt.title(
