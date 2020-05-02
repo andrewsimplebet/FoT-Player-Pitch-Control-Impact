@@ -13,10 +13,8 @@ https://github.com/Friends-of-Tracking-Data-FoTD/LaurieOnTracking
 """
 
 import matplotlib.pyplot as plt
-import matplotlib as mpl
 import numpy as np
 import matplotlib.animation as animation
-import Metrica_PitchControl as mpc
 from matplotlib.colors import LinearSegmentedColormap
 
 
@@ -481,7 +479,7 @@ def plot_pitchcontrol_for_event(
     player_id=0,
     player_x_velocity=0,
     player_y_velocity=0,
-    cmap_list = [],
+    cmap_list=[],
     alpha_pitch_control=0.5,
     team_colors=("r", "b")
 ):
@@ -557,27 +555,26 @@ def plot_pitchcontrol_for_event(
     if plotting_difference:
         PPCF = convert_pitch_control_for_cmap(PPCF)
 
-    reds_cmap = 'Reds'
-    blues_cmap = 'Blues'
+    home_presence_cmap = 'Reds'
+    away_presence_cmap = 'Blues'
+
     home_cmap = 'bwr'
     away_cmap = 'bwr_r'
 
-
     if len(cmap_list):
-        blues_cmap = LinearSegmentedColormap.from_list("", cmap_list[:6][::-1])
-        reds_cmap = LinearSegmentedColormap.from_list("", cmap_list[6:])
+        home_presence_cmap = LinearSegmentedColormap.from_list("", cmap_list[len(cmap_list) // 2:])
+        away_presence_cmap = LinearSegmentedColormap.from_list("", cmap_list[:len(cmap_list) // 2][::-1])
         home_cmap = LinearSegmentedColormap.from_list("", cmap_list)
         away_cmap = LinearSegmentedColormap.from_list("", cmap_list[::-1])
-
 
     # If we are plotting a player's space captured, apply a specific cmap
     if plotting_presence:
         if team_to_plot != possession_team:
             PPCF = -1 * PPCF
         if team_to_plot == "Home":
-            cmap = reds_cmap
+            cmap = home_presence_cmap
         else:
-            cmap = blues_cmap
+            cmap = away_presence_cmap
 
     # Otherwise, apply the default heatmap from the original function
     else:
