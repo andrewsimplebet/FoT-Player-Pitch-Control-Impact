@@ -59,8 +59,8 @@ example_player_analysis_away = PlayerPitchControlAnalysisPlayer(
     params=params,
     events=events,
     event_id=820,
-    team_player_to_analyze="Away",
-    player_to_analyze=19,
+    team_player_to_analyze="Home",
+    player_to_analyze=5,
     field_dimens=(106.0, 68.0),
     n_grid_cells_x=50,
 )

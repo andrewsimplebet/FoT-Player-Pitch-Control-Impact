@@ -664,7 +664,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 fontdict={"fontsize": 22},
             )
 
-    def get_optimal_location_on_pitch(self):
+    def get_optimal_location_on_pitch(self, size_of_grid=30):
         offside_position = self._determine_offside_position()
         max_y_coord = self.field_dimens[1] / 2
         min_y_coord = -1 * max_y_coord
@@ -689,35 +689,62 @@ class PlayerPitchControlAnalysisPlayer(object):
         else:
             raise ValueError("team_player_to_analyze must be either 'Home' or 'Away'")
 
-        MAX_EVALS = 1000
-        space = {
+        location_trials = 110
+
+        location_space = {
             "x_change": hp.uniform(
                 "x_change",
-                min_x_coord - player_x_coordinate,
-                max_x_coord - player_x_coordinate,
+                max(min_x_coord - player_x_coordinate, -1 * size_of_grid / 2),
+                min(max_x_coord - player_x_coordinate, size_of_grid / 2),
             ),
             "y_change": hp.uniform(
                 "y_change",
-                min_y_coord - player_y_coordinate,
-                max_y_coord - player_y_coordinate,
+                max(min_y_coord - player_y_coordinate, -1 * size_of_grid / 2),
+                min(max_y_coord - player_y_coordinate, size_of_grid / 2),
             ),
-            "x_velocity": hp.uniform("x_velocity", -2.5, 2.5),
-            "y_velocity": hp.uniform("y_velocity", -2.5, 2.5),
+            "x_velocity": hp.uniform("x_velocity", -0.001, 0.001),
+            "y_velocity": hp.uniform("y_velocity", -0.001, 0.001),
         }
         bayes_trials = Trials()
-        optimization = fmin(
+        location_optimization = fmin(
             fn=self.partial_space_creation,
-            space=space,
+            space=location_space,
             algo=tpe.suggest,
-            max_evals=MAX_EVALS,
+            max_evals=location_trials,
             trials=bayes_trials,
         )
+
+        velocity_trials = 40
+        velocity_space = {
+            "x_change": hp.uniform(
+                "x_change",
+                location_optimization["x_change"] - 0.01,
+                location_optimization["x_change"] + 0.01,
+            ),
+            "y_change": hp.uniform(
+                "y_change",
+                location_optimization["y_change"] - 0.01,
+                location_optimization["y_change"] + 0.01,
+            ),
+            "x_velocity": hp.uniform("x_velocity", -3.5, 3.5),
+            "y_velocity": hp.uniform("y_velocity", -3.5, 3.5),
+        }
+        bayes_trials = Trials()
+        velocity_optimization = fmin(
+            fn=self.partial_space_creation,
+            space=velocity_space,
+            algo=tpe.suggest,
+            max_evals=velocity_trials,
+            trials=bayes_trials,
+        )
+
+        # return velocity_optimization
         self.plot_pitch_control_difference(
             replace_function="location",
-            relative_x_change=optimization["x_change"],
-            relative_y_change=optimization["y_change"],
-            replace_x_velocity=optimization["x_velocity"],
-            replace_y_velocity=optimization["y_velocity"],
+            relative_x_change=velocity_optimization["x_change"],
+            relative_y_change=velocity_optimization["y_change"],
+            replace_x_velocity=velocity_optimization["x_velocity"],
+            replace_y_velocity=velocity_optimization["y_velocity"],
             replace_velocity=True,
         )
         plt.show()
@@ -741,7 +768,6 @@ class PlayerPitchControlAnalysisPlayer(object):
         return -1 * space_creation
 
     def _determine_offside_position(self):
-
         x_coordinates = []
         if self.team_player_to_analyze == "Home":
             players_on_pitch = self._get_players_on_pitch(team="Away")
