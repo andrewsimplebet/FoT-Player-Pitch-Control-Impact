@@ -229,8 +229,8 @@ def plot_frame(
             team[x_columns],
             team[y_columns],
             color=color,
-            marker='o',
-            linestyle='None',
+            marker="o",
+            linestyle="None",
             MarkerSize=PlayerMarkerSize,
             alpha=PlayerAlpha,
         )  # plot player positions
@@ -353,8 +353,8 @@ def save_match_clip(
                     team[x_columns],
                     team[y_columns],
                     color=color,
-                    marker='o',
-                    linestyle='None',
+                    marker="o",
+                    linestyle="None",
                     MarkerSize=PlayerMarkerSize,
                     alpha=PlayerAlpha,
                 )  # plot player positions
@@ -444,7 +444,14 @@ def plot_events(
         fig, ax = figax
     for i, row in events.iterrows():
         if "Marker" in indicators:
-            ax.plot(row["Start X"], row["Start Y"], color=color, marker='o', linestyle='None', alpha=alpha)
+            ax.plot(
+                row["Start X"],
+                row["Start Y"],
+                color=color,
+                marker="o",
+                linestyle="None",
+                alpha=alpha,
+            )
         if "Arrow" in indicators:
             ax.annotate(
                 "",
@@ -488,7 +495,7 @@ def plot_pitchcontrol_for_event(
     cmap_list=[],
     alpha_pitch_control=0.5,
     team_colors=("r", "b"),
-    field_color="white"
+    field_color="white",
 ):
     """ plot_pitchcontrol_for_event( event_id, events,  tracking_home, tracking_away, PPCF, xgrid, ygrid )
 
@@ -562,15 +569,19 @@ def plot_pitchcontrol_for_event(
     if plotting_difference:
         PPCF = convert_pitch_control_for_cmap(PPCF)
 
-    home_presence_cmap = 'Reds'
-    away_presence_cmap = 'Blues'
+    home_presence_cmap = "Reds"
+    away_presence_cmap = "Blues"
 
-    home_cmap = 'bwr'
-    away_cmap = 'bwr_r'
+    home_cmap = "bwr"
+    away_cmap = "bwr_r"
 
     if len(cmap_list):
-        home_presence_cmap = LinearSegmentedColormap.from_list("", cmap_list[len(cmap_list) // 2:])
-        away_presence_cmap = LinearSegmentedColormap.from_list("", cmap_list[:len(cmap_list) // 2][::-1])
+        home_presence_cmap = LinearSegmentedColormap.from_list(
+            "", cmap_list[len(cmap_list) // 2 :]
+        )
+        away_presence_cmap = LinearSegmentedColormap.from_list(
+            "", cmap_list[: len(cmap_list) // 2][::-1]
+        )
         home_cmap = LinearSegmentedColormap.from_list("", cmap_list)
         away_cmap = LinearSegmentedColormap.from_list("", cmap_list[::-1])
 

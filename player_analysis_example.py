@@ -59,8 +59,8 @@ example_player_analysis_away = PlayerPitchControlAnalysisPlayer(
     params=params,
     events=events,
     event_id=820,
-    team_player_to_analyze="Home",
-    player_to_analyze=5,
+    team_player_to_analyze="Away",
+    player_to_analyze=19,
     field_dimens=(106.0, 68.0),
     n_grid_cells_x=50,
 )
@@ -113,7 +113,7 @@ example_player_analysis_away.plot_pitch_control_difference(replace_function="pre
 plt.show()
 
 
-# Finally, let's examine what would happen if we moved the player 10 meters towards the middle of the pitch
+# Now, let's examine what would happen if we moved the player 10 meters towards the middle of the pitch
 print(
     example_player_analysis_away.team_player_to_analyze
     + " Player "
@@ -137,6 +137,11 @@ example_player_analysis_away.plot_pitch_control_difference(
     replace_function="location", relative_x_change=0, relative_y_change=10
 )
 plt.show()
+
+# Finally, let's take a stab at trying to determine the optimal location and velocity vector for the given player
+example_player_analysis_away.get_optimal_location_on_pitch(
+    size_of_grid=20, location_trials=100, velocity_trials=25, max_velocity=5
+)
 
 # endregion
 
@@ -226,4 +231,8 @@ example_player_analysis_home.plot_pitch_control_difference(
     replace_function="location", relative_x_change=0, relative_y_change=5
 )
 plt.show()
+
+example_player_analysis_home.get_optimal_location_on_pitch(
+    size_of_grid=20, location_trials=100, velocity_trials=25, max_velocity=5
+)
 # endregion

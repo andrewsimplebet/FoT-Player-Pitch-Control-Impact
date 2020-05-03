@@ -3,6 +3,7 @@ import Metrica_Viz as mviz
 import numpy as np
 import matplotlib.pyplot as plt
 import warnings
+import math
 from hyperopt import hp, fmin, tpe, Trials
 
 
@@ -18,7 +19,6 @@ class PlayerPitchControlAnalysisPlayer(object):
         player_to_analyze,
         field_dimens=(106.0, 68.0),
         n_grid_cells_x=50,
-
     ):
         """
         This class is used to consolidate many of the functions that would be used to analyze the impact of an
@@ -500,7 +500,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         cmap_list=[],
         alpha=0.7,
         alpha_pitch_control=0.5,
-        team_colors=("r", "b")
+        team_colors=("r", "b"),
     ):
         """
         Function description:
@@ -579,8 +579,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 alpha=alpha,
                 alpha_pitch_control=alpha_pitch_control,
                 cmap_list=cmap_list,
-                team_colors=team_colors
-
+                team_colors=team_colors,
             )
         elif replace_function == "movement":
 
@@ -597,7 +596,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 alpha=alpha,
                 alpha_pitch_control=alpha_pitch_control,
                 cmap_list=cmap_list,
-                team_colors=team_colors
+                team_colors=team_colors,
             )
         elif replace_function == "location":
             if self.team_player_to_analyze == "Home":
@@ -660,7 +659,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 alpha=alpha,
                 alpha_pitch_control=alpha_pitch_control,
                 cmap_list=cmap_list,
-                team_colors=team_colors
+                team_colors=team_colors,
             )
         if replace_function == "movement":
             plt.title(
@@ -691,7 +690,83 @@ class PlayerPitchControlAnalysisPlayer(object):
                 fontdict={"fontsize": 22},
             )
 
-    def get_optimal_location_on_pitch(self, size_of_grid=30):
+    def partial_space_creation(self, params):
+        """
+        Function Description:
+            This function is used to help determine the optimal location on the pitch, by calculating the total space
+            controlled by a team after altering the location and/or velocity vector of a given player.
+
+        Input Parameters:
+        The parameters of this function are stored in a dictionary (``params``) to be compatible with hyperopt's
+        optimization functions. Below, we describe each key of the dictionary, and what their values represent in the
+        function.
+
+        :param float params['x_change']: The amount to change the x location of the player. Measured in meters.
+        :param float params['y_change']: The amount to change the y location of the player. Measured in meters.
+        :param float params['velocity']: The new velocity of the player, measured in meters per second.
+        :param float params['angle']: New angle of the player, relative to the positive x direction (towards the home
+            team's goal) and the positive y direction (towards the left side of the pitch from the perspective of the
+            away team). Measured in radians
+
+        Returns:
+        :return: The total space on the pitch controlled by the player's team, after altering the location and/or
+            velocity vector of the given player
+        """
+        x_change = params["x_change"]
+        y_change = params["y_change"]
+        velocity = params["velocity"]
+        angle = params["angle"]
+        x_velocity = velocity * np.sin(angle)
+        y_velocity = velocity * np.cos(angle)
+        new_pitch_control, xgrid, ygrid = self.calculate_pitch_control_new_location(
+            relative_x_change=x_change,
+            relative_y_change=y_change,
+            replace_velocity=True,
+            replace_x_velocity=x_velocity,
+            replace_y_velocity=y_velocity,
+        )
+        space_creation = self.calculate_total_space_on_pitch_team(
+            new_pitch_control, calculating_diff=False
+        )
+        print(params, space_creation)
+        return -1 * space_creation
+
+    def get_optimal_location_on_pitch(
+        self, size_of_grid=20, location_trials=50, velocity_trials=0, max_velocity=5
+    ):
+        """
+        Function description:
+        This function attempts to find an "optimal location" on the pitch for a specific player, dependent on the
+            locations and velocity vectors of the 21 players. Uses the package ``hyperopt`` to try to maximize the
+            pitch control of the team, given the player is within a certain square box of his or her location. In
+            addition, we can estimate the optimal velocity vector, subject to a user defined max velocity. The general
+            flow is we optimize the location first (assuming 0 velocity), then the velocity. The user can choose to
+            optimize location, velocity or both using the location_trials and velocity_trials parameters.
+
+        Input parameters:
+        :param float/int size_of_grid: A square box drawn around the player's current location to test a potential
+            "optimal location". Measured in meters. Defaults to 20 (10 meters each direction from the player).
+        :param int location_trials: The number of trials to try to determine the optimal location. More trials means
+            it is more likely you will find the optimal location, but the runtime is longer (scales linearly).
+            If set to 0, the player's location will remain constant, and we will only test the velocity vector.
+            Defaults to 50.
+        :param int velocity_trials: The number of trials to try to determine the optimal velocity vector. More trials
+            means it is more likely you will find the optimal value, but the runtime is longer (scales linearly). If
+            set to 0, we will skip this portion of the code, and the function will only return the optimal location,
+            with a velocity of 0.
+        :param float/int max_velocity: The maximum allowed velocity of a player when trying to compute his/her optimal
+            velocity vector. Measured in meters per second Defaults to 5.
+
+        Returns:
+        :return: A plot of the player's estimated optimal location and/or velocity vector on the pitch, with shadings
+            for space gained and conceded by adjusting the location and velocity/vector
+        """
+        if (location_trials == 0) * (velocity_trials == 0):
+            raise ValueError(
+                "One of location_trials or velocity_trials must be greater than 0"
+            )
+        if size_of_grid <= 0:
+            raise ValueError("size_of_grid must be greater than 0")
         offside_position = self._determine_offside_position()
         max_y_coord = self.field_dimens[1] / 2
         min_y_coord = -1 * max_y_coord
@@ -716,85 +791,118 @@ class PlayerPitchControlAnalysisPlayer(object):
         else:
             raise ValueError("team_player_to_analyze must be either 'Home' or 'Away'")
 
-        location_trials = 110
+        if location_trials > 0:
+            location_space = {
+                "x_change": hp.uniform(
+                    "x_change",
+                    max(min_x_coord - player_x_coordinate, -1 * size_of_grid / 2),
+                    min(max_x_coord - player_x_coordinate, size_of_grid / 2),
+                ),
+                "y_change": hp.uniform(
+                    "y_change",
+                    max(min_y_coord - player_y_coordinate, -1 * size_of_grid / 2),
+                    min(max_y_coord - player_y_coordinate, size_of_grid / 2),
+                ),
+                "velocity": hp.uniform("x_velocity", -0.001, 0.001),
+                "angle": hp.uniform("y_velocity", -0.001, 0.001),
+            }
 
-        location_space = {
-            "x_change": hp.uniform(
-                "x_change",
-                max(min_x_coord - player_x_coordinate, -1 * size_of_grid / 2),
-                min(max_x_coord - player_x_coordinate, size_of_grid / 2),
-            ),
-            "y_change": hp.uniform(
-                "y_change",
-                max(min_y_coord - player_y_coordinate, -1 * size_of_grid / 2),
-                min(max_y_coord - player_y_coordinate, size_of_grid / 2),
-            ),
-            "x_velocity": hp.uniform("x_velocity", -0.001, 0.001),
-            "y_velocity": hp.uniform("y_velocity", -0.001, 0.001),
-        }
-        bayes_trials = Trials()
-        location_optimization = fmin(
-            fn=self.partial_space_creation,
-            space=location_space,
-            algo=tpe.suggest,
-            max_evals=location_trials,
-            trials=bayes_trials,
-        )
+            location_optimization = fmin(
+                fn=self.partial_space_creation,
+                space=location_space,
+                algo=tpe.suggest,
+                max_evals=location_trials,
+                trials=Trials(),
+            )
+        elif location_trials == 0:
+            location_optimization = {
+                "x_change": 0,
+                "y_change": 0,
+                "x_velocity": 0,
+                "y_velocity": 0,
+            }
+        else:
+            raise ValueError("location_trials must be greater than or equal to 0")
 
-        velocity_trials = 40
-        velocity_space = {
-            "x_change": hp.uniform(
-                "x_change",
-                location_optimization["x_change"] - 0.01,
-                location_optimization["x_change"] + 0.01,
-            ),
-            "y_change": hp.uniform(
-                "y_change",
-                location_optimization["y_change"] - 0.01,
-                location_optimization["y_change"] + 0.01,
-            ),
-            "x_velocity": hp.uniform("x_velocity", -3.5, 3.5),
-            "y_velocity": hp.uniform("y_velocity", -3.5, 3.5),
-        }
-        bayes_trials = Trials()
-        velocity_optimization = fmin(
-            fn=self.partial_space_creation,
-            space=velocity_space,
-            algo=tpe.suggest,
-            max_evals=velocity_trials,
-            trials=bayes_trials,
-        )
+        if velocity_trials > 0:
+            velocity_space = {
+                "x_change": hp.uniform(
+                    "x_change",
+                    location_optimization["x_change"] - 0.01,
+                    location_optimization["x_change"] + 0.01,
+                ),
+                "y_change": hp.uniform(
+                    "y_change",
+                    location_optimization["y_change"] - 0.01,
+                    location_optimization["y_change"] + 0.01,
+                ),
+                "velocity": hp.uniform(
+                    "velocity",
+                    -1 * np.sqrt(max_velocity ** 2 / 2),
+                    np.sqrt(max_velocity ** 2 / 2),
+                ),
+                "angle": hp.uniform("angle", 0, 2 * math.pi),
+            }
+            velocity_optimization = fmin(
+                fn=self.partial_space_creation,
+                space=velocity_space,
+                algo=tpe.suggest,
+                max_evals=velocity_trials,
+                trials=Trials(),
+            )
+        elif velocity_trials == 0:
+            velocity_optimization = {
+                "x_change": location_optimization["x_change"],
+                "y_change": location_optimization["y_change"],
+                "x_velocity": 0,
+                "y_velocity": 0,
+            }
+        else:
+            raise ValueError("velocity_trials must be greater than or equal to 0")
 
         # return velocity_optimization
         self.plot_pitch_control_difference(
             replace_function="location",
             relative_x_change=velocity_optimization["x_change"],
             relative_y_change=velocity_optimization["y_change"],
-            replace_x_velocity=velocity_optimization["x_velocity"],
-            replace_y_velocity=velocity_optimization["y_velocity"],
+            replace_x_velocity=velocity_optimization["velocity"]
+            * np.sin(velocity_optimization["angle"]),
+            replace_y_velocity=velocity_optimization["velocity"]
+            * np.cos(velocity_optimization["angle"]),
             replace_velocity=True,
         )
+        if location_trials == 0:
+            plt.title(
+                "Optimal velocity vector of "
+                + self.team_player_to_analyze
+                + " Player "
+                + str(self.player_to_analyze)
+                + " during Event "
+                + str(self.event_id),
+                fontdict={"fontsize": 22},
+            )
+        else:
+            plt.title(
+                "Optimal location of "
+                + self.team_player_to_analyze
+                + " Player "
+                + str(self.player_to_analyze)
+                + " during Event "
+                + str(self.event_id),
+                fontdict={"fontsize": 22},
+            )
         plt.show()
-
-    def partial_space_creation(self, params):
-        x_change = params["x_change"]
-        y_change = params["y_change"]
-        x_velocity = params["x_velocity"]
-        y_velocity = params["y_velocity"]
-        new_pitch_control, xgrid, ygrid = self.calculate_pitch_control_new_location(
-            relative_x_change=x_change,
-            relative_y_change=y_change,
-            replace_velocity=True,
-            replace_x_velocity=x_velocity,
-            replace_y_velocity=y_velocity,
-        )
-        space_creation = self.calculate_total_space_on_pitch_team(
-            new_pitch_control, calculating_diff=False
-        )
-        print(params, space_creation)
-        return -1 * space_creation
+        return
 
     def _determine_offside_position(self):
+        """
+        Function Description:
+            This function determines the x value that would make a player offside, to aid us in determining the
+            "optimal location" for a player. Determined by taking the second most extreme value of the opposing team's
+            tracking frame for the given event.
+
+        :return: float The x value that would make a player offside.
+        """
         x_coordinates = []
         if self.team_player_to_analyze == "Home":
             players_on_pitch = self._get_players_on_pitch(team="Away")
