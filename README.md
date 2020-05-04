@@ -16,6 +16,8 @@ We build out tools to answer the following questions given a player/teamID and a
 
 4.) How would the pitch control change if a player were in a different location on the pitch? Is the player in the optimal position given the locations and velocities of the other 21 players on the pitch?
 
+5.) What is the optimal location and velocity vector for a player, given the locations of the other 21 players?
+
 Examples of how these tools can be applied are found in ``example_player_analysis.py``, where we generate the relevant plots and space creation metrics for one player on each team.
 
 In addition, there are functions added to ``metrica_viz.py`` to help support the new player specific faults
