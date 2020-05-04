@@ -117,6 +117,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             / (len(self.xgrid) * len(self.ygrid))
         )
 
+        # Flip the pitch control if the team you are trying to analyze is out of possession
         if (self.team_player_to_analyze == self.team_in_possession) or calculating_diff:
             return total_space_attacking
         else:
@@ -168,6 +169,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
             ] = replace_y_velocity
 
+        # Generate a new pitch control, with the one player's attributes edited
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
             event_id=self.event_id,
             events=self.events,
@@ -227,6 +229,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
             ] = np.nan
 
+        # Generate a new pitch control, with the one player's attributes edited
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
             event_id=self.event_id,
             events=self.events,
@@ -318,6 +321,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                     self.tracking_frame, "Away_" + str(self.player_to_analyze) + "_vy"
                 ] = replace_y_velocity
 
+        # Generate a new pitch control, with the one player's attributes edited
         edited_pitch_control, xgrid, ygrid = mpc.generate_pitch_control_for_event(
             event_id=self.event_id,
             events=self.events,
@@ -337,6 +341,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         relative_x_change=0,
         relative_y_change=0,
         replace_function="movement",
+        invert=False
     ):
         """
         Function description:
@@ -378,6 +383,9 @@ class PlayerPitchControlAnalysisPlayer(object):
             pitch control surface assuming the player is in a new location on the pitch with a new velocity vector.
             The function then returns a difference in pitch control between the actual event, and the event if the
             player were in his new location.
+        :param bool invert: :param invert A boolean that determines if we need to flip the blue/red colors of the plot,
+            in the case that we are plotting a theoretical velocity vector to a player's actual velocity vector.
+            Defaults to False.
 
         Returns:
             pitch_control_difference: Difference in pitch control surfaces (dimen (n_grid_cells_x,n_grid_cells_y) )
@@ -387,6 +395,8 @@ class PlayerPitchControlAnalysisPlayer(object):
             xgrid: Positions of the pixels in the x-direction (field length)
             ygrid: Positions of the pixels in the y-direction (field width)
         """
+
+        # Determine which function for replacing a player's attributes we are using
         if replace_function == "movement":
             (
                 edited_pitch_control,
@@ -415,11 +425,18 @@ class PlayerPitchControlAnalysisPlayer(object):
                 relative_y_change=relative_y_change,
             )
 
+
         else:
             raise ValueError(
                 "replace_function must be either 'movement', 'presence' or 'location'"
             )
+
+        #Take the difference between the two pitch control surfaces
         pitch_control_difference = self.event_pitch_control - edited_pitch_control
+
+        #This argument is here in case we want to invert what we want to study
+        if invert:
+            pitch_control_difference = -1*pitch_control_difference
         return pitch_control_difference, xgrid, ygrid
 
     def calculate_space_created(
@@ -468,6 +485,8 @@ class PlayerPitchControlAnalysisPlayer(object):
             Positive values represent space lost by the player's team after editing the player's attributes,
              while negative values represent space gained after editing the player's attributes. Measured in m^2.
         """
+
+        #Calculate the difference in pitch control surfaces
         (
             pitch_control_difference,
             xgrid,
@@ -481,9 +500,12 @@ class PlayerPitchControlAnalysisPlayer(object):
             replace_velocity=replace_velocity,
         )
 
+        # Calculate the amount of pitch the attacking team currently has
         pitch_control_change = self.calculate_total_space_on_pitch_team(
             pitch_control_result=pitch_control_difference, calculating_diff=True
         )
+
+        # This statement maps 0 to -1 and 1 to 1 depending on whether the relevant team currently has possession
         pitch_control_change = pitch_control_change * (
             2 * (self.team_in_possession == self.team_player_to_analyze) - 1
         )
@@ -501,6 +523,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         alpha=0.7,
         alpha_pitch_control=0.5,
         team_colors=("r", "b"),
+        invert=False
     ):
         """
         Function description:
@@ -541,12 +564,13 @@ class PlayerPitchControlAnalysisPlayer(object):
         :param string replace_function: The type of function we are using to analyze the player.
             Must be either "movement", "presence" or "location". Defaults to "movement". For a detailed description of
             this argument, please refer to the docstring in ``calculate_pitch_control_difference``.
-
         :param list cmap_list: List of colors to use in the pitch control spaces for each team. Default is an empty list.
         :param float alpha: alpha (transparency) of player markers. Default is 0.7
         :param float alpha_pitch_control: alpha (transparency) of spaces heatmap. Default is 0.5
-        :param tuple team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red, home team) and 'b' (blue away team)
-
+        :param tuple team_colors: Tuple containing the team colors of the home & away team. Default is 'r' (red,
+            home team) and 'b' (blue away team)
+        :param bool invert: Used to determine if we want to flip the color map of from blues to reds. Will be most
+            useful when we subtract a theoretical vector from the player's actual vector.
 
         Returns:
             This function technically does not return anything, but does produce a matplotlib plot.
@@ -562,6 +586,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             relative_y_change=relative_y_change,
             replace_function=replace_function,
             replace_velocity=replace_velocity,
+            invert=invert
         )
 
         if replace_function == "presence":
@@ -767,9 +792,15 @@ class PlayerPitchControlAnalysisPlayer(object):
             )
         if size_of_grid <= 0:
             raise ValueError("size_of_grid must be greater than 0")
+
+        #Calculate the x value that would make the player offsides
         offside_position = self._determine_offside_position()
+
         max_y_coord = self.field_dimens[1] / 2
         min_y_coord = -1 * max_y_coord
+
+        # Determine the player's current location and maximum and minimum values that player could take on in the
+        #   x direction
         if self.team_player_to_analyze == "Home":
             player_x_coordinate = self.tracking_home.loc[self.tracking_frame][
                 "Home_" + str(self.player_to_analyze) + "_x"
@@ -791,6 +822,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         else:
             raise ValueError("team_player_to_analyze must be either 'Home' or 'Away'")
 
+        # Run this if we want to determine a new location for the player
         if location_trials > 0:
             location_space = {
                 "x_change": hp.uniform(
@@ -814,6 +846,8 @@ class PlayerPitchControlAnalysisPlayer(object):
                 max_evals=location_trials,
                 trials=Trials(),
             )
+
+        # If we don't, populate the dictionary from the if statement with 0's
         elif location_trials == 0:
             location_optimization = {
                 "x_change": 0,
@@ -824,6 +858,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         else:
             raise ValueError("location_trials must be greater than or equal to 0")
 
+        # Now, determine the optimal velocity
         if velocity_trials > 0:
             velocity_space = {
                 "x_change": hp.uniform(
@@ -861,27 +896,17 @@ class PlayerPitchControlAnalysisPlayer(object):
             raise ValueError("velocity_trials must be greater than or equal to 0")
 
         # return velocity_optimization
-        self.plot_pitch_control_difference(
-            replace_function="location",
-            relative_x_change=velocity_optimization["x_change"],
-            relative_y_change=velocity_optimization["y_change"],
-            replace_x_velocity=velocity_optimization["velocity"]
-            * np.sin(velocity_optimization["angle"]),
-            replace_y_velocity=velocity_optimization["velocity"]
-            * np.cos(velocity_optimization["angle"]),
-            replace_velocity=True,
-        )
-        if location_trials == 0:
-            plt.title(
-                "Optimal velocity vector of "
-                + self.team_player_to_analyze
-                + " Player "
-                + str(self.player_to_analyze)
-                + " during Event "
-                + str(self.event_id),
-                fontdict={"fontsize": 22},
+        if location_trials != 0:
+            self.plot_pitch_control_difference(
+                replace_function="location",
+                relative_x_change=velocity_optimization["x_change"],
+                relative_y_change=velocity_optimization["y_change"],
+                replace_x_velocity=velocity_optimization["velocity"]
+                * np.sin(velocity_optimization["angle"]),
+                replace_y_velocity=velocity_optimization["velocity"]
+                * np.cos(velocity_optimization["angle"]),
+                replace_velocity=True,
             )
-        else:
             plt.title(
                 "Optimal location of "
                 + self.team_player_to_analyze
@@ -891,16 +916,35 @@ class PlayerPitchControlAnalysisPlayer(object):
                 + str(self.event_id),
                 fontdict={"fontsize": 22},
             )
+        else:
+            self.plot_pitch_control_difference(
+                replace_function="movement",
+                replace_x_velocity=velocity_optimization["velocity"]
+                * np.sin(velocity_optimization["angle"]),
+                replace_y_velocity=velocity_optimization["velocity"]
+                * np.cos(velocity_optimization["angle"]),
+                invert=True
+            )
+            plt.title(
+                "Optimal velocity vector of "
+                + self.team_player_to_analyze
+                + " Player "
+                + str(self.player_to_analyze)
+                + " during Event "
+                + str(self.event_id),
+                fontdict={"fontsize": 22},
+            )
         plt.show()
-        return
 
     def _determine_offside_position(self):
         """
         Function Description:
             This function determines the x value that would make a player offside, to aid us in determining the
             "optimal location" for a player. Determined by taking the second most extreme value of the opposing team's
-            tracking frame for the given event.
-
+            tracking frame for the given event. This is used in the ``get_optimal_location_on_pitch`` function to
+            ensure that a player's "optimal position" is not in a position where he or she would be flagged for
+            offsides.
+        Returns:
         :return: float The x value that would make a player offside.
         """
         x_coordinates = []
