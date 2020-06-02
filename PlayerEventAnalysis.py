@@ -160,6 +160,7 @@ class PlayerEventAnalysis(object):
         This function calculates the percentage of the EPV surface that the relevant team controls. This is done by
         multiplying the pitch control
 
+        Input Parameters:
         :param numpy nd.array input_surface: The surface passed into the function to manipulate on. Can either be a
         pitch control surface or an already converted pitch_control*epv_grid surface
         :param input_surface_type: The type of surface passed in the above argument. Can either be 'pitch_control',
@@ -213,7 +214,7 @@ class PlayerEventAnalysis(object):
         Returns:
         edited_pitch_control: Pitch control surface (dimen (n_grid_cells_x,n_grid_cells_y) ) containing pitch control
                 probability for the attacking team with one player's velocity changed (defaulted to not moving).
-                Surface for the defending team is simply 1-PPCFa.
+                Weighted by EPV grid if epv=True. Surface for the defending team is simply 1-PPCFa.
         xgrid: Positions of the pixels in the x-direction (field length)
         ygrid: Positions of the pixels in the y-direction (field width)
         """
@@ -264,7 +265,7 @@ class PlayerEventAnalysis(object):
         Returns:
         edited_pitch_control: Pitch control surface (dimen (n_grid_cells_x,n_grid_cells_y) ) containing pitch control
                 probability for the attacking team after removing the relevant player from the pitch. Surface for the
-                defending team is simply 1-PPCFa.
+                defending team is simply 1-PPCFa. Weighted by EPV grid if epv=True.
         xgrid: Positions of the pixels in the x-direction (field length)
         ygrid: Positions of the pixels in the y-direction (field width)
         """
@@ -352,7 +353,7 @@ class PlayerEventAnalysis(object):
 
         Returns:
         edited_pitch_control: Pitch control surface (dimen (n_grid_cells_x,n_grid_cells_y) ) containing pitch control
-                probability for the attcking team with one player's velocity changed
+                probability for the attcking team with one player's velocity changed. Weighted by EPV grid if epv=True.
                Surface for the defending team is just 1-PPCFa.
         xgrid: Positions of the pixels in the x-direction (field length)
         ygrid: Positions of the pixels in the y-direction (field width)
@@ -472,7 +473,7 @@ class PlayerEventAnalysis(object):
             pitch_control_difference: Difference in pitch control surfaces (dimen (n_grid_cells_x,n_grid_cells_y) )
             between the actual event, and the event with the player's movement, location and/or presence altered.
             Returns difference in pitch control with respect to the team that currently has possession of the ball
-            The difference surface for the defending team is simply 1-PPCFa.
+            The difference surface for the defending team is simply 1-PPCFa. Weighted by EPV grid if epv=True.
             xgrid: Positions of the pixels in the x-direction (field length)
             ygrid: Positions of the pixels in the y-direction (field width)
         """
@@ -1039,7 +1040,7 @@ class PlayerEventAnalysis(object):
                 + " during Event "
                 + str(self.event_id)
                 + clarifier,
-                fontdict={"fontsize": 22},
+                fontdict={"fontsize": 18},
             )
         else:
             self.plot_pitch_control_difference(
@@ -1058,7 +1059,7 @@ class PlayerEventAnalysis(object):
                 + " during Event "
                 + str(self.event_id)
                 + clarifier,
-                fontdict={"fontsize": 22},
+                fontdict={"fontsize": 18},
             )
         plt.show()
 

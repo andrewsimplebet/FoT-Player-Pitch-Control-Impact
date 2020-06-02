@@ -23,7 +23,7 @@ example_player_analysis_pitch_control = PlayerEventAnalysis(
 )
 
 example_player_analysis_pitch_control.get_optimal_location_on_pitch(
-    size_of_grid=20, location_trials=125, velocity_trials=30, max_velocity=5
+    size_of_grid=15, location_trials=125, velocity_trials=30, max_velocity=5
 )
 
 
@@ -32,5 +32,5 @@ example_player_analysis_epv = PlayerEventAnalysis(
 )
 
 example_player_analysis_epv.get_optimal_location_on_pitch(
-    size_of_grid=20, location_trials=125, velocity_trials=30, max_velocity=5
+    size_of_grid=15, location_trials=125, velocity_trials=30, max_velocity=5
 )

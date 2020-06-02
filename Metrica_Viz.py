@@ -587,7 +587,7 @@ def plot_pitchcontrol_for_event(
 
     min_value = np.min(PPCF)
     max_value = np.max(PPCF)
-    # If we are plotting a player's space captured, apply a specific cmap
+    # If we are plotting a player's space captured, apply a specific cmap and scale for plot
     if plotting_presence:
         scale_min = 0
         scale_max = max_value
@@ -600,7 +600,7 @@ def plot_pitchcontrol_for_event(
         else:
             cmap = away_presence_cmap
 
-    # Otherwise, apply the default heatmap from the original function
+    # Otherwise, apply the default heatmap from the original function and scale for plot
     else:
         scale_max = max(abs(min_value), max_value)
         scale_min = -1 * scale_max
@@ -609,18 +609,6 @@ def plot_pitchcontrol_for_event(
         else:
             cmap = away_cmap
 
-    # if min_value > -.01:
-    #     scale_min = 0
-    #     scale_max = max_value
-    # elif max_value < 0.01:
-    #     scale_min = 0
-    #     scale_max = -1 * min_value
-    #
-    #
-    # else:
-    #     scale_max = max(abs(min_value), max_value)
-    #     scale_min = -1 * scale_max
-    # plot pitch control surface
     plot = ax.imshow(
         np.flipud(PPCF),
         extent=(np.amin(xgrid), np.amax(xgrid), np.amin(ygrid), np.amax(ygrid)),
