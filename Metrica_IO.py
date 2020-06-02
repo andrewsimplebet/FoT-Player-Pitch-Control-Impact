@@ -114,19 +114,21 @@ def to_single_playing_direction(home, away, events):
     return home, away, events
 
 
-def find_playing_direction(team,teamname):
-    '''
+def find_playing_direction(team, teamname):
+    """
     Find the direction of play for the team (based on where the goalkeepers are at kickoff). +1 is left->right and -1 is right->left
-    '''
-    GK_column_x = teamname+"_"+find_goalkeeper(team)+"_x"
+    """
+    GK_column_x = teamname + "_" + find_goalkeeper(team) + "_x"
     # +ve is left->right, -ve is right->left
     return -np.sign(team.iloc[0][GK_column_x])
 
-def find_goalkeeper(team):
-    '''
-    Find the goalkeeper in team, identifying him/her as the player closest to goal at kick off
-    '''
-    x_columns = [c for c in team.columns if c[-2:].lower()=='_x' and c[:4] in ['Home','Away']]
-    GK_col = team.iloc[0][x_columns].abs().idxmax(axis=1)
-    return GK_col.split('_')[1]
 
+def find_goalkeeper(team):
+    """
+    Find the goalkeeper in team, identifying him/her as the player closest to goal at kick off
+    """
+    x_columns = [
+        c for c in team.columns if c[-2:].lower() == "_x" and c[:4] in ["Home", "Away"]
+    ]
+    GK_col = team.iloc[0][x_columns].abs().idxmax(axis=1)
+    return GK_col.split("_")[1]
