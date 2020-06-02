@@ -4,10 +4,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 import warnings
 import math
+import Metrica_EPV as mepv
 from hyperopt import hp, fmin, tpe, Trials
 
 
-class PlayerPitchControlAnalysisPlayer(object):
+class PlayerEventAnalysis(object):
     def __init__(
         self,
         tracking_home,
@@ -17,6 +18,8 @@ class PlayerPitchControlAnalysisPlayer(object):
         event_id,
         team_player_to_analyze,
         player_to_analyze,
+        gk_numbers,
+        epv=False,
         field_dimens=(106.0, 68.0),
         n_grid_cells_x=50,
     ):
@@ -25,6 +28,14 @@ class PlayerPitchControlAnalysisPlayer(object):
             individual on the pitch control surface during a given event of a match
         Leveraging @EightyFivePoint's pitch control model presented in the Friends of Tracking Series, we build out a
             series of tools to help isolate individual player's impacts to pitch control.
+
+        Update 06/02: In the most recent version of the code, we support the ability to generate an analysis that uses
+        the EPV grid provided by Laurie in his video "Beyond pitch control: valuing player actions and passing options."
+        By setting "epv=True", the user now has the option to generate plots and calculate space creation
+        metrics/'optimal location' using the multiplication of the current pitch control surface and EPV grid, and our
+        output metric is the proportion of the EPV grid controlled by the relevant team. These changes are not breaking,
+        functions written using this code previously will still work as intended.
+
         Using an event from the match's event DataFrame, and a specific team/player ID, this class allows us to:
             1. Calculate the amount of space occupied on the pitch (per EightyFivePoint's pitch control model) for any
                 frame of a match.
@@ -47,7 +58,8 @@ class PlayerPitchControlAnalysisPlayer(object):
             If replace_function=``location``, we study the player's impact on pitch control relative to the pitch
             control if the player were in a different location on the pitch.
 
-        Examples of using this class for each type of analysis are contained in the file ``player_analysis_example.py``.
+        Examples of using this class for each type of analysis are contained in the file
+        ``player_pitch_control_analysis_example.py``.
 
         Modifications to @EightyFivePoint's code for plotting pitch control to support our new plots can be found in
         ``Metrica_viz.py``
@@ -59,19 +71,22 @@ class PlayerPitchControlAnalysisPlayer(object):
                 player
         :param dict params: Dictionary of model parameters (default model parameters can be generated using
                 default_model_params())
-        :param pd.DataFrame events: DataFrame containing the event data
+        :param pd.DataFrame events: DataFrame containing the event data for the particular match
         :param int event_id: Index (not row) of the event that describes the instant at which the pitch control surface
                 should be calculated
         :param str team_player_to_analyze: The team of the player whose movement we want to analyze. Must be either
                 "Home" or "Away"
+        :param list(str) gk_numbers: A two element list that represents the jersey numbers of the two goalkeepers on the
+                home team and the away team. This is used in some of the pitch control calculations
+        :param bool epv: This bool determines if our analysis will be based on calculations that use a pitch control
+        surface or an EPV surface. Defaults to False (uses pitch_control and assumes all points on pitch are equal)
         :param int or str(int) player_to_analyze: The player ID of the player whose movement we want to analyze. The ID
                 must be a player currently on the pitch for ``team_player_to_analyze``
         :param tuple field_dimens: tuple containing the length and width of the pitch in meters. Default is (106,68)
         :param int n_grid_cells_x: Number of pixels in the grid (in the x-direction) that covers the surface.
                 Default is 50. n_grid_cells_y will be calculated based on n_grid_cells_x and the field dimensions
-
-
         """
+
         self.tracking_home = tracking_home
         self.tracking_away = tracking_away
         self.params = params
@@ -79,10 +94,12 @@ class PlayerPitchControlAnalysisPlayer(object):
         self.event_id = event_id
         self.team_player_to_analyze = team_player_to_analyze
         self.player_to_analyze = player_to_analyze
+        self.gk_numbers = gk_numbers
+        self.epv = epv
         self.field_dimens = field_dimens
         self.n_grid_cells_x = n_grid_cells_x
         self.tracking_frame = self.events.loc[self.event_id]["Start Frame"]
-        self.team_in_possession = self.events.loc[self.event_id]["Team"]
+        self.team_in_possession_pitch_control = self.events.loc[self.event_id]["Team"]
         (
             self.event_pitch_control,
             self.xgrid,
@@ -93,18 +110,28 @@ class PlayerPitchControlAnalysisPlayer(object):
             tracking_home=self.tracking_home,
             tracking_away=self.tracking_away,
             params=self.params,
+            GK_numbers=self.gk_numbers,
         )
+        # If we are exploring EPV, we will also initialize the EPV grid provided by @EightyFivePoint and compute
+        # the controlled EPV surface during the event from the perspective of the attacking team
+        if self.epv:
+            self.EPV_grid = mepv.load_EPV_grid(
+                # Replace this with your own location for this
+                "/users/andrewpuopolo/Pitch_Control_Player/EPV_grid.csv"
+            )
+            self.team_in_possession_eepv_grid = self.event_pitch_control * self.EPV_grid
 
     def calculate_total_space_on_pitch_team(
         self, pitch_control_result, calculating_diff=False
     ):
         """
         Function Description:
-        This function calculates the number of square meters on the pitch occupied by the team with the ball in the
+        This function calculates the number of square meters on the pitch occupied by the relevant team in the
         given event. This assumes that all portions of the pitch are equal in value.
 
         Input Parameters:
         :param numpy.ndarray pitch_control_result: The estimates from the result of a fitted pitch control model
+        :param calculating_diff: Tells us if we are calculating the difference between two surfaces
 
         Returns:
         :return: The number of meters occupied by the attacking team in a freeze frame of the data. Measured in m^2
@@ -118,10 +145,52 @@ class PlayerPitchControlAnalysisPlayer(object):
         )
 
         # Flip the pitch control if the team you are trying to analyze is out of possession
-        if (self.team_player_to_analyze == self.team_in_possession) or calculating_diff:
+        if (
+            self.team_player_to_analyze == self.team_in_possession_pitch_control
+        ) or calculating_diff:
             return total_space_attacking
         else:
             return (self.field_dimens[0] * self.field_dimens[1]) - total_space_attacking
+
+    def calculate_team_expected_epv(
+        self, input_surface, input_surface_type, calculating_diff=False
+    ):
+        """
+        Function Description:
+        This function calculates the percentage of the EPV surface that the relevant team controls. This is done by
+        multiplying the pitch control
+
+        :param numpy nd.array input_surface: The surface passed into the function to manipulate on. Can either be a
+        pitch control surface or an already converted pitch_control*epv_grid surface
+        :param input_surface_type: The type of surface passed in the above argument. Can either be 'pitch_control',
+        'epv' or 'EPV'
+        :param calculating_diff: Tells us if we are calculating the difference between two surfaces
+
+        Returns:
+        :return: A value between 0 and 1 (or -1 and 0, if we are analyzing a player on the team out of possession), that
+        represents the percentage of the EPV grid that the relevant team controls
+        """
+        # First, let's see if we passed in a pitch control surface or an EPV surface, and transform if necessary
+        if input_surface_type == "pitch_control":
+            expected_epv_surface = input_surface * self.EPV_grid
+        elif input_surface_type in ["epv", "EPV"]:
+            expected_epv_surface = input_surface
+        else:
+            raise ValueError(
+                "Currently this function only supports 'pitch_control',  'epv', and 'EPV'"
+            )
+
+        total_epv_proportion = expected_epv_surface.sum() / self.EPV_grid.sum()
+
+        # Flip the EPV surface if the team you are trying to analyze is out of possession
+        if (
+            self.team_player_to_analyze == self.team_in_possession_pitch_control
+        ) or calculating_diff:
+            return total_epv_proportion
+        # We do -1 times here, since this function will eventually get passed into an optimization function that we
+        # want to minimize
+        else:
+            return -1 * total_epv_proportion
 
     def calculate_pitch_control_replaced_velocity(
         self, replace_x_velocity=0, replace_y_velocity=0,
@@ -176,10 +245,14 @@ class PlayerPitchControlAnalysisPlayer(object):
             tracking_home=temp_tracking_home,
             tracking_away=temp_tracking_away,
             params=self.params,
+            GK_numbers=self.gk_numbers,
             field_dimen=self.field_dimens,
             n_grid_cells_x=self.n_grid_cells_x,
         )
-        return edited_pitch_control, xgrid, ygrid
+        if self.epv:
+            return edited_pitch_control * self.EPV_grid, xgrid, ygrid
+        else:
+            return edited_pitch_control, xgrid, ygrid
 
     def calculate_pitch_control_without_player(self):
         """
@@ -237,9 +310,13 @@ class PlayerPitchControlAnalysisPlayer(object):
             tracking_away=temp_tracking_away,
             params=self.params,
             field_dimen=self.field_dimens,
+            GK_numbers=self.gk_numbers,
             n_grid_cells_x=self.n_grid_cells_x,
         )
-        return edited_pitch_control, xgrid, ygrid
+        if self.epv:
+            return edited_pitch_control * self.EPV_grid, xgrid, ygrid
+        else:
+            return edited_pitch_control, xgrid, ygrid
 
     def calculate_pitch_control_new_location(
         self,
@@ -329,9 +406,13 @@ class PlayerPitchControlAnalysisPlayer(object):
             tracking_away=temp_tracking_away,
             params=self.params,
             field_dimen=self.field_dimens,
+            GK_numbers=self.gk_numbers,
             n_grid_cells_x=self.n_grid_cells_x,
         )
-        return edited_pitch_control, xgrid, ygrid
+        if self.epv:
+            return edited_pitch_control * self.EPV_grid, xgrid, ygrid
+        else:
+            return edited_pitch_control, xgrid, ygrid
 
     def calculate_pitch_control_difference(
         self,
@@ -341,7 +422,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         relative_x_change=0,
         relative_y_change=0,
         replace_function="movement",
-        invert=False
+        invert=False,
     ):
         """
         Function description:
@@ -397,6 +478,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         """
 
         # Determine which function for replacing a player's attributes we are using
+
         if replace_function == "movement":
             (
                 edited_pitch_control,
@@ -425,18 +507,22 @@ class PlayerPitchControlAnalysisPlayer(object):
                 relative_y_change=relative_y_change,
             )
 
-
         else:
             raise ValueError(
                 "replace_function must be either 'movement', 'presence' or 'location'"
             )
 
-        #Take the difference between the two pitch control surfaces
-        pitch_control_difference = self.event_pitch_control - edited_pitch_control
+        # Take the difference between the two pitch control surfaces
+        if self.epv:
+            pitch_control_difference = (
+                self.team_in_possession_eepv_grid - edited_pitch_control
+            )
+        else:
+            pitch_control_difference = self.event_pitch_control - edited_pitch_control
 
-        #This argument is here in case we want to invert what we want to study
+        # This argument is here in case we want to invert what we want to study
         if invert:
-            pitch_control_difference = -1*pitch_control_difference
+            pitch_control_difference = -1 * pitch_control_difference
         return pitch_control_difference, xgrid, ygrid
 
     def calculate_space_created(
@@ -485,8 +571,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             Positive values represent space lost by the player's team after editing the player's attributes,
              while negative values represent space gained after editing the player's attributes. Measured in m^2.
         """
-
-        #Calculate the difference in pitch control surfaces
+        # Calculate the difference in pitch control surfaces
         (
             pitch_control_difference,
             xgrid,
@@ -501,13 +586,22 @@ class PlayerPitchControlAnalysisPlayer(object):
         )
 
         # Calculate the amount of pitch the attacking team currently has
-        pitch_control_change = self.calculate_total_space_on_pitch_team(
-            pitch_control_result=pitch_control_difference, calculating_diff=True
-        )
+        if self.epv:
+            pitch_control_change = self.calculate_team_expected_epv(
+                input_surface=pitch_control_difference,
+                input_surface_type="epv",
+                calculating_diff=True,
+            )
+
+        else:
+            pitch_control_change = self.calculate_total_space_on_pitch_team(
+                pitch_control_result=pitch_control_difference, calculating_diff=True
+            )
 
         # This statement maps 0 to -1 and 1 to 1 depending on whether the relevant team currently has possession
         pitch_control_change = pitch_control_change * (
-            2 * (self.team_in_possession == self.team_player_to_analyze) - 1
+            2 * (self.team_in_possession_pitch_control == self.team_player_to_analyze)
+            - 1
         )
         return pitch_control_change
 
@@ -523,7 +617,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         alpha=0.7,
         alpha_pitch_control=0.5,
         team_colors=("r", "b"),
-        invert=False
+        invert=False,
     ):
         """
         Function description:
@@ -586,7 +680,7 @@ class PlayerPitchControlAnalysisPlayer(object):
             relative_y_change=relative_y_change,
             replace_function=replace_function,
             replace_velocity=replace_velocity,
-            invert=invert
+            invert=invert,
         )
 
         if replace_function == "presence":
@@ -607,7 +701,6 @@ class PlayerPitchControlAnalysisPlayer(object):
                 team_colors=team_colors,
             )
         elif replace_function == "movement":
-
             mviz.plot_pitchcontrol_for_event(
                 event_id=self.event_id,
                 events=self.events,
@@ -664,7 +757,6 @@ class PlayerPitchControlAnalysisPlayer(object):
                     replace_y_velocity = self.tracking_away.loc[self.tracking_frame][
                         "Away_" + str(self.player_to_analyze) + "_vy"
                     ]
-
             mviz.plot_pitchcontrol_for_event(
                 event_id=self.event_id,
                 events=self.events,
@@ -687,33 +779,55 @@ class PlayerPitchControlAnalysisPlayer(object):
                 team_colors=team_colors,
             )
         if replace_function == "movement":
-            plt.title(
-                "Space created by "
-                + str(self.team_player_to_analyze)
+            base_string = (
+                str(self.team_player_to_analyze)
                 + " Player "
                 + str(self.player_to_analyze)
                 + " during event "
-                + str(self.event_id),
-                fontdict={"fontsize": 22},
+                + str(self.event_id)
             )
+            if self.epv:
+                plt.title(
+                    "Expected EPV created by " + base_string, fontdict={"fontsize": 22},
+                )
+            else:
+                plt.title(
+                    "Space created by " + base_string, fontdict={"fontsize": 22},
+                )
         elif replace_function == "presence":
-            plt.title(
-                "Space occupied by "
-                + str(self.team_player_to_analyze)
+            base_string = (
+                str(self.team_player_to_analyze)
                 + " Player "
                 + str(self.player_to_analyze)
                 + " during event "
-                + str(self.event_id),
-                fontdict={"fontsize": 22},
+                + str(self.event_id)
             )
+            if self.epv:
+                plt.title(
+                    "Expected EPV occupied by " + base_string, fontdict={"fontsize": 22}
+                )
+            else:
+                plt.title(
+                    "Space occupied by " + base_string, fontdict={"fontsize": 22},
+                )
+
         elif replace_function == "location":
-            plt.title(
-                "Difference In Pitch Control After Moving "
+            base_string = (
+                "After Moving "
                 + str(self.team_player_to_analyze)
                 + " Player "
-                + str(self.player_to_analyze),
-                fontdict={"fontsize": 22},
+                + str(self.player_to_analyze)
             )
+            if self.epv:
+                plt.title(
+                    "Difference In Expected EPV " + base_string,
+                    fontdict={"fontsize": 22},
+                )
+            else:
+                plt.title(
+                    "Difference In Pitch Control " + base_string,
+                    fontdict={"fontsize": 22},
+                )
 
     def partial_space_creation(self, params):
         """
@@ -750,8 +864,14 @@ class PlayerPitchControlAnalysisPlayer(object):
             replace_x_velocity=x_velocity,
             replace_y_velocity=y_velocity,
         )
-        space_creation = self.calculate_total_space_on_pitch_team(
-            new_pitch_control, calculating_diff=False
+        if self.epv:
+            return_func = self.calculate_team_expected_epv
+            kw_args = {"input_surface_type": "epv"}
+        else:
+            return_func = self.calculate_total_space_on_pitch_team
+            kw_args = {}
+        space_creation = return_func(
+            new_pitch_control, **kw_args, calculating_diff=False,
         )
         print(params, space_creation)
         return -1 * space_creation
@@ -793,7 +913,7 @@ class PlayerPitchControlAnalysisPlayer(object):
         if size_of_grid <= 0:
             raise ValueError("size_of_grid must be greater than 0")
 
-        #Calculate the x value that would make the player offsides
+        # Calculate the x value that would make the player offsides
         offside_position = self._determine_offside_position()
 
         max_y_coord = self.field_dimens[1] / 2
@@ -896,6 +1016,10 @@ class PlayerPitchControlAnalysisPlayer(object):
             raise ValueError("velocity_trials must be greater than or equal to 0")
 
         # return velocity_optimization
+        if self.epv:
+            clarifier = " (EPV)"
+        else:
+            clarifier = " (Pitch Control)"
         if location_trials != 0:
             self.plot_pitch_control_difference(
                 replace_function="location",
@@ -913,7 +1037,8 @@ class PlayerPitchControlAnalysisPlayer(object):
                 + " Player "
                 + str(self.player_to_analyze)
                 + " during Event "
-                + str(self.event_id),
+                + str(self.event_id)
+                + clarifier,
                 fontdict={"fontsize": 22},
             )
         else:
@@ -923,7 +1048,7 @@ class PlayerPitchControlAnalysisPlayer(object):
                 * np.sin(velocity_optimization["angle"]),
                 replace_y_velocity=velocity_optimization["velocity"]
                 * np.cos(velocity_optimization["angle"]),
-                invert=True
+                invert=True,
             )
             plt.title(
                 "Optimal velocity vector of "
@@ -931,7 +1056,8 @@ class PlayerPitchControlAnalysisPlayer(object):
                 + " Player "
                 + str(self.player_to_analyze)
                 + " during Event "
-                + str(self.event_id),
+                + str(self.event_id)
+                + clarifier,
                 fontdict={"fontsize": 22},
             )
         plt.show()

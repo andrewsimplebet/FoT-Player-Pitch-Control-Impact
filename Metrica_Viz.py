@@ -566,8 +566,8 @@ def plot_pitchcontrol_for_event(
         PPCF = -1 * PPCF
 
     # If we need to apply a transformation to ensure the 0 points are white, apply the transformation
-    if plotting_difference:
-        PPCF = convert_pitch_control_for_cmap(PPCF)
+    # if plotting_difference:
+    #     PPCF = convert_pitch_control_for_cmap(PPCF)
 
     home_presence_cmap = "Reds"
     away_presence_cmap = "Blues"
@@ -585,10 +585,16 @@ def plot_pitchcontrol_for_event(
         home_cmap = LinearSegmentedColormap.from_list("", cmap_list)
         away_cmap = LinearSegmentedColormap.from_list("", cmap_list[::-1])
 
+    min_value = np.min(PPCF)
+    max_value = np.max(PPCF)
     # If we are plotting a player's space captured, apply a specific cmap
     if plotting_presence:
+        scale_min = 0
+        scale_max = max_value
         if team_to_plot != possession_team:
             PPCF = -1 * PPCF
+            scale_min = 0
+            scale_max = -1 * min_value
         if team_to_plot == "Home":
             cmap = home_presence_cmap
         else:
@@ -596,21 +602,35 @@ def plot_pitchcontrol_for_event(
 
     # Otherwise, apply the default heatmap from the original function
     else:
+        scale_max = max(abs(min_value), max_value)
+        scale_min = -1 * scale_max
         if possession_team == "Home":
             cmap = home_cmap
         else:
             cmap = away_cmap
 
+    # if min_value > -.01:
+    #     scale_min = 0
+    #     scale_max = max_value
+    # elif max_value < 0.01:
+    #     scale_min = 0
+    #     scale_max = -1 * min_value
+    #
+    #
+    # else:
+    #     scale_max = max(abs(min_value), max_value)
+    #     scale_min = -1 * scale_max
     # plot pitch control surface
-    ax.imshow(
+    plot = ax.imshow(
         np.flipud(PPCF),
         extent=(np.amin(xgrid), np.amax(xgrid), np.amin(ygrid), np.amax(ygrid)),
         interpolation="lanczos",
-        vmin=0.0,
-        vmax=1.0,
+        vmin=scale_min,
+        vmax=scale_max,
         alpha=alpha_pitch_control,
         cmap=cmap,
     )
+    fig.colorbar(plot, ax=ax)
     return fig, ax
 
 
@@ -682,42 +702,3 @@ def plot_new_player(
             color=color,
         )
     return fig, ax
-
-
-def convert_pitch_control_for_cmap(pitch_control):
-    """
-    Function Description:
-    This function converts a pitch control surface with negative values to a surface that can be used appropriately
-    with a cmap. The issue was that we need the minimum value to map to 0, the maximum value to map  to 0.5, and the
-    maximum value to map to 1 in order for the plot to plot the unaffected areas of the pitch white. The transformations
-    done in this function are the solutions of a system of equations to map these 3 values to their desired targets.
-
-    There is likely a better solution to this problem than what is done here, so I am open to reviewing pull requests to
-    improve this. Currently, the main flaw of this solution is that the intensity of the colors can be misleading.
-    If the min value is -0.1 while the max value is 0.9, the min and max values will still be displayed with the same
-    intensity due to this transformation. Thus, I don't recommended plotting the off ball movement of players who are
-    barely moving during the event until a better solution can be reached.
-
-    Input parameters:
-    :param pitch_control: An ndarray that represents the difference between two pitch control arrays
-
-    Returns:
-    :return: An adjusted surface to be passed into ``plot_pitch_control_for_event``
-    """
-    min_value = pitch_control.min()
-    max_value = pitch_control.max()
-    quadratic_coef = (
-        0.5
-        * (min_value + max_value)
-        / ((max_value * min_value) * (max_value - min_value))
-    )
-    linear_coef = (
-        0.5
-        * (min_value ** 2 + max_value ** 2)
-        / ((min_value * max_value) * max_value * min_value)
-    )
-    constant_term = 0.5
-    quadratic_array = quadratic_coef * np.square(pitch_control)
-    linear_array = linear_coef * pitch_control
-    constant_array = constant_term + 0 * pitch_control
-    return quadratic_array + linear_array + constant_array
