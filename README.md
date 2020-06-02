@@ -26,4 +26,6 @@ Data courtesy of Bruno Dagnino (Metrica Sports).
 
 All helper functions outside of this file courtesy of Laurie Shaw, and can be found in the following Github repository: https://github.com/Friends-of-Tracking-Data-FoTD/LaurieOnTracking.
 
-I am incredibly open to an expansion of this codebase, and would love for collaboration if anyone is interested. If you have ideas for optimizing, expanding or cleaning up this code, please feel free to submit a pull request, submit an issue or contact me on Twitter (@andrew_puopolo) or email (puopolo4@gmail.com) 
+Update 06/02: In the most recent version of the code, we support the ability to generate an analysis that uses the EPV grid provided by Laurie in his video "Beyond pitch control: valuing player actions and passing options." By setting "epv=True", the user now has the option to generate plots and calculate space creation metrics/'optimal location' using the multiplication of the current pitch control surface and EPV grid, and our output metric is the proportion of the EPV grid controlled by the relevant team. These changes are not breaking, functions written using this code previously will still work as intended.
+
+I am incredibly open to an expansion of this codebase, and would love for collaboration if anyone is interested. If you have ideas for optimizing, expanding or cleaning up this code, please feel free to submit a pull request, submit an issue or contact me on Twitter (@andrew_puopolo) or email (puopolo4@gmail.com)
